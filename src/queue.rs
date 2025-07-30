@@ -135,6 +135,14 @@ unsafe extern "C" {
     /// Wrapper for uxQueueMessagesWaitingFromISR()
     /// Returns the number of messages waiting in a queue from an ISR
     pub fn freertos_rs_queue_messages_waiting_from_isr(queue: FreeRtosQueueHandle) -> FreeRtosUBaseType;
+
+    /// Wrapper for xQueueIsQueueEmptyFromISR()
+    /// Checks if a queue is empty from an ISR
+    pub fn freertos_rs_queue_is_queue_empty_from_isr(queue: FreeRtosQueueHandle) -> FreeRtosBaseType;
+
+    /// Wrapper for xQueueIsQueueFullFromISR()
+    /// Checks if a queue is full from an ISR
+    pub fn freertos_rs_queue_is_queue_full_from_isr(queue: FreeRtosQueueHandle) -> FreeRtosBaseType;
     
     /// Wrapper for uxQueueSpacesAvailable()
     /// Returns the number of free spaces in a queue
@@ -240,4 +248,63 @@ unsafe extern "C" {
     pub fn freertos_rs_queue_get_mutex_holder_from_isr(
         semaphore: FreeRtosQueueHandle
     ) -> FreeRtosTaskHandle;
+
+    /// Wrapper for xQueuePeekFromISR()
+    /// Peeks at an item in a queue from an ISR
+    pub fn freertos_rs_queue_peek_from_isr(
+        queue: FreeRtosQueueHandle,
+        buffer: FreeRtosVoidPtr
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xQueueGetStaticBuffers()
+    /// Gets the static buffers associated with a queue
+    pub fn freertos_rs_queue_get_static_buffers(
+        queue: FreeRtosQueueHandle,
+        queue_storage: *mut *mut u8,
+        static_queue: *mut FreeRtosVoidPtr
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for uxQueueGetQueueItemSize()
+    /// Gets the size of items in a queue
+    pub fn freertos_rs_queue_get_queue_item_size(
+        queue: FreeRtosQueueHandle
+    ) -> FreeRtosUBaseType;
+
+    /// Wrapper for uxQueueGetQueueLength()
+    /// Gets the length of a queue
+    pub fn freertos_rs_queue_get_queue_length(
+        queue: FreeRtosQueueHandle
+    ) -> FreeRtosUBaseType;
+
+    /// Wrapper for vQueueAddToRegistry()
+    /// Adds a queue to the registry
+    pub fn freertos_rs_queue_add_to_registry(
+        queue: FreeRtosQueueHandle,
+        queue_name: *const u8
+    );
+
+    /// Wrapper for vQueueUnregisterQueue()
+    /// Removes a queue from the registry
+    pub fn freertos_rs_queue_unregister_queue(queue: FreeRtosQueueHandle);
+
+    /// Wrapper for pcQueueGetName()
+    /// Gets the name of a queue
+    pub fn freertos_rs_queue_get_name(queue: FreeRtosQueueHandle) -> *const u8;
+
+    /// Wrapper for vQueueSetQueueNumber()
+    /// Sets the queue number for tracing
+    pub fn freertos_rs_queue_set_queue_number(
+        queue: FreeRtosQueueHandle,
+        queue_number: FreeRtosUBaseType
+    );
+
+    /// Wrapper for uxQueueGetQueueNumber()
+    /// Gets the queue number for tracing
+    pub fn freertos_rs_queue_get_queue_number(
+        queue: FreeRtosQueueHandle
+    ) -> FreeRtosUBaseType;
+
+    /// Wrapper for ucQueueGetQueueType()
+    /// Gets the type of a queue
+    pub fn freertos_rs_queue_get_queue_type(queue: FreeRtosQueueHandle) -> u8;
 }

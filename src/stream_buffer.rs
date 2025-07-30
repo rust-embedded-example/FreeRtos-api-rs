@@ -7,10 +7,9 @@
  * Copyright (c) 2024
  * SPDX-License-Identifier: MIT
  */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosStreamBufferHandle,
-    FreeRtosVoidPtr, FreeRtosUBaseType
+    FreeRtosVoidPtr
 };
 
 //===========================================================================

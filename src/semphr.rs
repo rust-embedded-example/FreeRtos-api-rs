@@ -148,4 +148,11 @@ unsafe extern "C" {
     pub fn freertos_rs_semaphore_get_count_from_isr(
         semaphore: FreeRtosSemaphoreHandle
     ) -> FreeRtosUBaseType;
+
+    /// Wrapper for xSemaphoreGetStaticBuffer()
+    /// Gets the static buffer associated with a semaphore
+    pub fn freertos_rs_semaphore_get_static_buffer(
+        semaphore: FreeRtosSemaphoreHandle,
+        semaphore_buffer: *mut FreeRtosVoidPtr
+    ) -> FreeRtosBaseType;
 }

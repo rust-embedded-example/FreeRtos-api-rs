@@ -10,7 +10,7 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosEventGroupHandle,
-    FreeRtosEventBits, FreeRtosVoidPtr
+    FreeRtosEventBits, FreeRtosVoidPtr, FreeRtosUBaseType
 };
 
 //===========================================================================
@@ -103,4 +103,24 @@ unsafe extern "C" {
     pub fn freertos_rs_event_group_get_bits_from_isr(
         event_group: FreeRtosEventGroupHandle
     ) -> FreeRtosEventBits;
+
+    /// Wrapper for xEventGroupGetStaticBuffer()
+    /// Gets the static buffer associated with an event group
+    pub fn freertos_rs_event_group_get_static_buffer(
+        event_group: FreeRtosEventGroupHandle,
+        event_group_buffer: *mut FreeRtosVoidPtr
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for uxEventGroupGetNumber()
+    /// Gets the event group number for tracing
+    pub fn freertos_rs_event_group_get_number(
+        event_group: FreeRtosEventGroupHandle
+    ) -> FreeRtosUBaseType;
+
+    /// Wrapper for vEventGroupSetNumber()
+    /// Sets the event group number for tracing
+    pub fn freertos_rs_event_group_set_number(
+        event_group: FreeRtosEventGroupHandle,
+        event_group_number: FreeRtosUBaseType
+    );
 }

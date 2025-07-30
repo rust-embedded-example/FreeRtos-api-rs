@@ -51,6 +51,21 @@ unsafe extern "C" {
         created_task: *mut FreeRtosTaskHandle
     ) -> FreeRtosBaseType;
 
+    /// Wrapper for xTaskCreateRestrictedStatic()
+    /// Creates a new restricted task using static allocation
+    pub fn freertos_rs_task_create_restricted_static(
+        task_definition: *const FreeRtosVoidPtr,
+        created_task: *mut FreeRtosTaskHandle
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTaskCreateRestrictedStaticAffinitySet()
+    /// Creates a new restricted task with affinity using static allocation
+    pub fn freertos_rs_task_create_restricted_static_affinity_set(
+        task_definition: *const FreeRtosVoidPtr,
+        core_affinity_mask: FreeRtosUBaseType,
+        created_task: *mut FreeRtosTaskHandle
+    ) -> FreeRtosBaseType;
+
     /// Wrapper for xTaskCreateAffinitySet()
     /// Creates a new task with core affinity (multi-core systems)
     pub fn freertos_rs_task_create_affinity_set(
@@ -62,6 +77,30 @@ unsafe extern "C" {
         core_affinity_mask: FreeRtosUBaseType,
         created_task: *mut FreeRtosTaskHandle
     ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTaskCreateStaticAffinitySet()
+    /// Creates a new task with core affinity using static allocation
+    pub fn freertos_rs_task_create_static_affinity_set(
+        task_code: FreeRtosTaskFunction,
+        name: *const u8,
+        stack_depth: FreeRtosConfigStackDepthType,
+        parameters: FreeRtosVoidPtr,
+        priority: FreeRtosUBaseType,
+        stack_buffer: FreeRtosStackType,
+        task_buffer: FreeRtosStaticTask,
+        core_affinity_mask: FreeRtosUBaseType
+    ) -> FreeRtosTaskHandle;
+
+    /// Wrapper for vTaskCoreAffinitySet()
+    /// Sets the core affinity of a task
+    pub fn freertos_rs_task_core_affinity_set(
+        task: FreeRtosTaskHandle,
+        core_affinity_mask: FreeRtosUBaseType
+    );
+
+    /// Wrapper for uxTaskCoreAffinityGet()
+    /// Gets the core affinity of a task
+    pub fn freertos_rs_task_core_affinity_get(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 }
 
 //===========================================================================
@@ -133,6 +172,14 @@ unsafe extern "C" {
     /// Wrapper for uxTaskPriorityGetFromISR()
     /// Gets the priority of a task from an ISR
     pub fn freertos_rs_task_priority_get_from_isr(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
+
+    /// Wrapper for uxTaskBasePriorityGet()
+    /// Gets the base priority of a task
+    pub fn freertos_rs_task_base_priority_get(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
+
+    /// Wrapper for uxTaskBasePriorityGetFromISR()
+    /// Gets the base priority of a task from an ISR
+    pub fn freertos_rs_task_base_priority_get_from_isr(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 }
 
 //===========================================================================
@@ -190,6 +237,44 @@ unsafe extern "C" {
         clear_count_on_exit: FreeRtosBaseType,
         ticks_to_wait: FreeRtosTickType
     ) -> u32;
+
+    /// Wrapper for xTaskGenericNotify()
+    /// Generic task notification function
+    pub fn freertos_rs_task_generic_notify(
+        task_to_notify: FreeRtosTaskHandle,
+        index_to_notify: FreeRtosUBaseType,
+        value: u32,
+        action: u32,
+        previous_notification_value: *mut u32
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTaskGenericNotifyFromISR()
+    /// Generic task notification function from ISR
+    pub fn freertos_rs_task_generic_notify_from_isr(
+        task_to_notify: FreeRtosTaskHandle,
+        index_to_notify: FreeRtosUBaseType,
+        value: u32,
+        action: u32,
+        previous_notification_value: *mut u32,
+        higher_priority_task_woken: *mut FreeRtosBaseType
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTaskGenericNotifyWait()
+    /// Generic task notification wait function
+    pub fn freertos_rs_task_generic_notify_wait(
+        index_to_wait_on: FreeRtosUBaseType,
+        bits_to_clear_on_entry: u32,
+        bits_to_clear_on_exit: u32,
+        notification_value: *mut u32,
+        ticks_to_wait: FreeRtosTickType
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTaskGenericNotifyStateClear()
+    /// Clears the notification state of a task
+    pub fn freertos_rs_task_generic_notify_state_clear(
+        task: FreeRtosTaskHandle,
+        index_to_clear: FreeRtosUBaseType
+    ) -> FreeRtosBaseType;
 }
 
 //===========================================================================
@@ -249,6 +334,22 @@ unsafe extern "C" {
         task: FreeRtosTaskHandle
     ) -> FreeRtosConfigStackDepthType;
 
+    /// Wrapper for xTaskGetStaticBuffers()
+    /// Gets the static buffers associated with a task
+    pub fn freertos_rs_task_get_static_buffers(
+        task: FreeRtosTaskHandle,
+        stack_buffer: *mut FreeRtosStackType,
+        task_buffer: *mut FreeRtosStaticTask
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for ulTaskGetRunTimeCounter()
+    /// Gets the run time counter for a task
+    pub fn freertos_rs_task_get_run_time_counter(task: FreeRtosTaskHandle) -> u32;
+
+    /// Wrapper for ulTaskGetRunTimePercent()
+    /// Gets the run time percentage for a task
+    pub fn freertos_rs_task_get_run_time_percent(task: FreeRtosTaskHandle) -> u32;
+
     /// Wrapper for eTaskGetState()
     /// Gets the state of a task
     pub fn freertos_rs_task_get_state(
@@ -278,6 +379,15 @@ unsafe extern "C" {
         array_size: FreeRtosUBaseType,
         total_run_time: *mut u32
     ) -> FreeRtosUBaseType;
+
+    /// Wrapper for vTaskGetInfo()
+    /// Gets information about a specific task
+    pub fn freertos_rs_task_get_info(
+        task: FreeRtosTaskHandle,
+        task_status: FreeRtosVoidPtr,
+        get_free_stack_space: FreeRtosBaseType,
+        state: u32
+    );
 
     /// Wrapper for vTaskSetThreadLocalStoragePointer()
     /// Sets a thread local storage pointer
@@ -318,6 +428,32 @@ unsafe extern "C" {
     pub fn freertos_rs_task_catch_up_ticks(
         ticks_to_catch_up: FreeRtosTickType
     ) -> FreeRtosBaseType;
+
+    /// Wrapper for vTaskResetState()
+    /// Resets the task state
+    pub fn freertos_rs_task_reset_state();
+
+    /// Wrapper for ulTaskGenericNotifyValueClear()
+    /// Clears specific bits in a task notification value
+    pub fn freertos_rs_task_generic_notify_value_clear(
+        task: FreeRtosTaskHandle,
+        index_to_clear: FreeRtosUBaseType,
+        bits_to_clear: u32
+    ) -> u32;
+
+    /// Wrapper for vTaskListTasks()
+    /// Generates a human readable table of task states with buffer length
+    pub fn freertos_rs_task_list_tasks(
+        write_buffer: *mut u8,
+        buffer_length: usize
+    );
+
+    /// Wrapper for vTaskGetRunTimeStatistics()
+    /// Generates a human readable table of run time stats with buffer length
+    pub fn freertos_rs_task_get_run_time_statistics(
+        write_buffer: *mut u8,
+        buffer_length: usize
+    );
 }
 
 //===========================================================================
@@ -363,4 +499,12 @@ unsafe extern "C" {
     /// Wrapper for vTaskStepTick()
     /// Steps the tick count forward by specified amount
     pub fn freertos_rs_task_step_tick(ticks_to_jump: FreeRtosTickType);
+
+    /// Wrapper for vTaskPreemptionDisable()
+    /// Disables preemption for a task
+    pub fn freertos_rs_task_preemption_disable(task: FreeRtosTaskHandle);
+
+    /// Wrapper for vTaskPreemptionEnable()
+    /// Enables preemption for a task
+    pub fn freertos_rs_task_preemption_enable(task: FreeRtosTaskHandle);
 }

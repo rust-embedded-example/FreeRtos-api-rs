@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "FreeRtos-api-rs"
+name = "freertos-api-rs"
 version = "0.1.0"

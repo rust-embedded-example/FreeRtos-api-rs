@@ -31,7 +31,7 @@
  */
 
 #![no_std]
-#![allow(non_camel_case_types)]
+#[allow(non_snake_case)]
 
 // Module declarations
 pub mod base;
@@ -45,6 +45,8 @@ pub mod timers;
 pub mod stream_buffer;
 pub mod message_buffer;
 pub mod croutine;
+pub mod atomic;
+pub mod list;
 
 // Re-export commonly used types and functions
 pub use base::*;

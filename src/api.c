@@ -85,6 +85,40 @@ BaseType_t freertos_rs_task_create_restricted(
 {
     return xTaskCreateRestricted(pxTaskDefinition, pxCreatedTask);
 }
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTaskCreateRestrictedStatic()
+ * Creates a new restricted task using static allocation
+ * @param pxTaskDefinition Pointer to task parameters structure
+ * @param pxCreatedTask Handle to the created task
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_task_create_restricted_static(
+    const TaskParameters_t * const pxTaskDefinition,
+    TaskHandle_t * pxCreatedTask)
+{
+    return xTaskCreateRestrictedStatic(pxTaskDefinition, pxCreatedTask);
+}
+
+#if ((configNUMBER_OF_CORES > 1) && (configUSE_CORE_AFFINITY == 1))
+/**
+ * @brief Wrapper for xTaskCreateRestrictedStaticAffinitySet()
+ * Creates a new restricted task with affinity using static allocation
+ * @param pxTaskDefinition Pointer to task parameters structure
+ * @param uxCoreAffinityMask Core affinity mask
+ * @param pxCreatedTask Handle to the created task
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_task_create_restricted_static_affinity_set(
+    const TaskParameters_t * const pxTaskDefinition,
+    UBaseType_t uxCoreAffinityMask,
+    TaskHandle_t * pxCreatedTask)
+{
+    return xTaskCreateRestrictedStaticAffinitySet(pxTaskDefinition, uxCoreAffinityMask, pxCreatedTask);
+}
+#endif
+#endif
 #endif
 
 /*===========================================================================
@@ -242,6 +276,28 @@ UBaseType_t freertos_rs_task_priority_get_from_isr(TaskHandle_t xTask)
     return uxTaskPriorityGetFromISR(xTask);
 }
 
+/**
+ * @brief Wrapper for uxTaskBasePriorityGet()
+ * Gets the base priority of a task
+ * @param xTask Handle of the task to query
+ * @return UBaseType_t - Base priority of the task
+ */
+UBaseType_t freertos_rs_task_base_priority_get(TaskHandle_t xTask)
+{
+    return uxTaskBasePriorityGet(xTask);
+}
+
+/**
+ * @brief Wrapper for uxTaskBasePriorityGetFromISR()
+ * Gets the base priority of a task from an ISR
+ * @param xTask Handle of the task to query
+ * @return UBaseType_t - Base priority of the task
+ */
+UBaseType_t freertos_rs_task_base_priority_get_from_isr(TaskHandle_t xTask)
+{
+    return uxTaskBasePriorityGetFromISR(xTask);
+}
+
 #if ((configSUPPORT_DYNAMIC_ALLOCATION == 1) && (configNUMBER_OF_CORES > 1) && (configUSE_CORE_AFFINITY == 1))
 /**
  * @brief Wrapper for xTaskCreateAffinitySet()
@@ -265,6 +321,56 @@ BaseType_t freertos_rs_task_create_affinity_set(
     TaskHandle_t * const pxCreatedTask)
 {
     return xTaskCreateAffinitySet(pxTaskCode, pcName, usStackDepth, pvParameters, uxPriority, uxCoreAffinityMask, pxCreatedTask);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTaskCreateStaticAffinitySet()
+ * Creates a new task with core affinity using static allocation
+ * @param pxTaskCode Pointer to the task entry function
+ * @param pcName Descriptive name for the task
+ * @param ulStackDepth Stack depth in words
+ * @param pvParameters Pointer passed as parameter to the task
+ * @param uxPriority Priority of the task
+ * @param puxStackBuffer Pointer to stack buffer
+ * @param pxTaskBuffer Pointer to task buffer
+ * @param uxCoreAffinityMask Core affinity mask
+ * @return TaskHandle_t - Handle to the created task
+ */
+TaskHandle_t freertos_rs_task_create_static_affinity_set(
+    TaskFunction_t pxTaskCode,
+    const char * const pcName,
+    const configSTACK_DEPTH_TYPE ulStackDepth,
+    void * const pvParameters,
+    UBaseType_t uxPriority,
+    StackType_t * const puxStackBuffer,
+    StaticTask_t * const pxTaskBuffer,
+    UBaseType_t uxCoreAffinityMask)
+{
+    return xTaskCreateStaticAffinitySet(pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer, uxCoreAffinityMask);
+}
+#endif
+
+/**
+ * @brief Wrapper for vTaskCoreAffinitySet()
+ * Sets the core affinity of a task
+ * @param xTask Handle of the task
+ * @param uxCoreAffinityMask Core affinity mask
+ */
+void freertos_rs_task_core_affinity_set(TaskHandle_t xTask, UBaseType_t uxCoreAffinityMask)
+{
+    vTaskCoreAffinitySet(xTask, uxCoreAffinityMask);
+}
+
+/**
+ * @brief Wrapper for uxTaskCoreAffinityGet()
+ * Gets the core affinity of a task
+ * @param xTask Handle of the task
+ * @return UBaseType_t - Core affinity mask
+ */
+UBaseType_t freertos_rs_task_core_affinity_get(TaskHandle_t xTask)
+{
+    return uxTaskCoreAffinityGet(xTask);
 }
 #endif
 
@@ -300,6 +406,28 @@ BaseType_t freertos_rs_task_increment_tick(void)
 void freertos_rs_task_step_tick(TickType_t xTicksToJump)
 {
     vTaskStepTick(xTicksToJump);
+}
+#endif
+
+#if (configUSE_PREEMPTION == 0)
+/**
+ * @brief Wrapper for vTaskPreemptionDisable()
+ * Disables preemption for a task
+ * @param xTask Handle of task (NULL for current task)
+ */
+void freertos_rs_task_preemption_disable(TaskHandle_t xTask)
+{
+    vTaskPreemptionDisable(xTask);
+}
+
+/**
+ * @brief Wrapper for vTaskPreemptionEnable()
+ * Enables preemption for a task
+ * @param xTask Handle of task (NULL for current task)
+ */
+void freertos_rs_task_preemption_enable(TaskHandle_t xTask)
+{
+    vTaskPreemptionEnable(xTask);
 }
 #endif
 
@@ -393,6 +521,64 @@ BaseType_t freertos_rs_task_notify_give(TaskHandle_t xTaskToNotify)
 uint32_t freertos_rs_task_notify_take(BaseType_t xClearCountOnExit, TickType_t xTicksToWait)
 {
     return ulTaskGenericNotifyTake(tskDEFAULT_INDEX_TO_NOTIFY, xClearCountOnExit, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTaskGenericNotify()
+ * Generic task notification function
+ * @param xTaskToNotify Handle of task to notify
+ * @param uxIndexToNotify Index of notification array
+ * @param ulValue Value to send
+ * @param eAction Action to perform
+ * @param pulPreviousNotificationValue Pointer to previous notification value
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_task_generic_notify(TaskHandle_t xTaskToNotify, UBaseType_t uxIndexToNotify, uint32_t ulValue, uint32_t eAction, uint32_t *pulPreviousNotificationValue)
+{
+    return xTaskGenericNotify(xTaskToNotify, uxIndexToNotify, ulValue, (eNotifyAction)eAction, pulPreviousNotificationValue);
+}
+
+/**
+ * @brief Wrapper for xTaskGenericNotifyFromISR()
+ * Generic task notification function from ISR
+ * @param xTaskToNotify Handle of task to notify
+ * @param uxIndexToNotify Index of notification array
+ * @param ulValue Value to send
+ * @param eAction Action to perform
+ * @param pulPreviousNotificationValue Pointer to previous notification value
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_task_generic_notify_from_isr(TaskHandle_t xTaskToNotify, UBaseType_t uxIndexToNotify, uint32_t ulValue, uint32_t eAction, uint32_t *pulPreviousNotificationValue, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTaskGenericNotifyFromISR(xTaskToNotify, uxIndexToNotify, ulValue, (eNotifyAction)eAction, pulPreviousNotificationValue, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xTaskGenericNotifyWait()
+ * Generic task notification wait function
+ * @param uxIndexToWaitOn Index to wait on
+ * @param ulBitsToClearOnEntry Bits to clear on entry
+ * @param ulBitsToClearOnExit Bits to clear on exit
+ * @param pulNotificationValue Pointer to notification value
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_task_generic_notify_wait(UBaseType_t uxIndexToWaitOn, uint32_t ulBitsToClearOnEntry, uint32_t ulBitsToClearOnExit, uint32_t *pulNotificationValue, TickType_t xTicksToWait)
+{
+    return xTaskGenericNotifyWait(uxIndexToWaitOn, ulBitsToClearOnEntry, ulBitsToClearOnExit, pulNotificationValue, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTaskGenericNotifyStateClear()
+ * Clears the notification state of a task
+ * @param xTask Handle of task
+ * @param uxIndexToClear Index to clear
+ * @return BaseType_t - pdTRUE if notification was pending
+ */
+BaseType_t freertos_rs_task_generic_notify_state_clear(TaskHandle_t xTask, UBaseType_t uxIndexToClear)
+{
+    return xTaskGenericNotifyStateClear(xTask, uxIndexToClear);
 }
 
 /*===========================================================================
@@ -501,6 +687,45 @@ configSTACK_DEPTH_TYPE freertos_rs_task_get_stack_high_water_mark2(TaskHandle_t 
 }
 #endif
 
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTaskGetStaticBuffers()
+ * Gets the static buffers associated with a task
+ * @param xTask Handle of the task
+ * @param ppuxStackBuffer Pointer to receive stack buffer pointer
+ * @param ppxTaskBuffer Pointer to receive task buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_task_get_static_buffers(TaskHandle_t xTask, StackType_t **ppuxStackBuffer, StaticTask_t **ppxTaskBuffer)
+{
+    return xTaskGetStaticBuffers(xTask, ppuxStackBuffer, ppxTaskBuffer);
+}
+#endif
+
+#if (configGENERATE_RUN_TIME_STATS == 1)
+/**
+ * @brief Wrapper for ulTaskGetRunTimeCounter()
+ * Gets the run time counter for a task
+ * @param xTask Handle of the task
+ * @return configRUN_TIME_COUNTER_TYPE - Run time counter value
+ */
+configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_run_time_counter(TaskHandle_t xTask)
+{
+    return ulTaskGetRunTimeCounter(xTask);
+}
+
+/**
+ * @brief Wrapper for ulTaskGetRunTimePercent()
+ * Gets the run time percentage for a task
+ * @param xTask Handle of the task
+ * @return configRUN_TIME_COUNTER_TYPE - Run time percentage
+ */
+configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_run_time_percent(TaskHandle_t xTask)
+{
+    return ulTaskGetRunTimePercent(xTask);
+}
+#endif
+
 /**
  * @brief Wrapper for eTaskGetState()
  * Gets the state of a task
@@ -558,6 +783,19 @@ UBaseType_t freertos_rs_task_get_number_of_tasks(void)
 UBaseType_t freertos_rs_task_get_system_state(TaskStatus_t* pxTaskStatusArray, UBaseType_t uxArraySize, uint32_t* pulTotalRunTime)
 {
     return uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, pulTotalRunTime);
+}
+
+/**
+ * @brief Wrapper for vTaskGetInfo()
+ * Gets information about a specific task
+ * @param xTask Handle of task to query
+ * @param pxTaskStatus Pointer to TaskStatus_t structure to fill
+ * @param xGetFreeStackSpace Include free stack space calculation
+ * @param eState Task state to use if task is deleted
+ */
+void freertos_rs_task_get_info(TaskHandle_t xTask, TaskStatus_t* pxTaskStatus, BaseType_t xGetFreeStackSpace, uint32_t eState)
+{
+    vTaskGetInfo(xTask, pxTaskStatus, xGetFreeStackSpace, (eTaskState)eState);
 }
 #endif
 
@@ -632,6 +870,54 @@ BaseType_t freertos_rs_task_check_for_time_out(TimeOut_t* pxTimeOut, TickType_t*
 BaseType_t freertos_rs_task_catch_up_ticks(TickType_t xTicksToCatchUp)
 {
     return xTaskCatchUpTicks(xTicksToCatchUp);
+}
+#endif
+
+/**
+ * @brief Wrapper for vTaskResetState()
+ * Resets the task state
+ */
+void freertos_rs_task_reset_state(void)
+{
+    vTaskResetState();
+}
+
+/**
+ * @brief Wrapper for ulTaskGenericNotifyValueClear()
+ * Clears specific bits in a task notification value
+ * @param xTask Handle of the task
+ * @param uxIndexToClear Index of the notification to clear
+ * @param ulBitsToClear Bits to clear
+ * @return uint32_t - Previous notification value
+ */
+uint32_t freertos_rs_task_generic_notify_value_clear(TaskHandle_t xTask, UBaseType_t uxIndexToClear, uint32_t ulBitsToClear)
+{
+    return ulTaskGenericNotifyValueClear(xTask, uxIndexToClear, ulBitsToClear);
+}
+
+#if ((configUSE_STATS_FORMATTING_FUNCTIONS > 0) && (configUSE_TRACE_FACILITY == 1))
+/**
+ * @brief Wrapper for vTaskListTasks()
+ * Generates a human readable table of task states with buffer length
+ * @param pcWriteBuffer Buffer to write the table to
+ * @param uxBufferLength Length of the buffer
+ */
+void freertos_rs_task_list_tasks(char *pcWriteBuffer, size_t uxBufferLength)
+{
+    vTaskListTasks(pcWriteBuffer, uxBufferLength);
+}
+#endif
+
+#if ((configGENERATE_RUN_TIME_STATS == 1) && (configUSE_STATS_FORMATTING_FUNCTIONS > 0) && (configUSE_TRACE_FACILITY == 1))
+/**
+ * @brief Wrapper for vTaskGetRunTimeStatistics()
+ * Generates a human readable table of run time stats with buffer length
+ * @param pcWriteBuffer Buffer to write the table to
+ * @param uxBufferLength Length of the buffer
+ */
+void freertos_rs_task_get_run_time_statistics(char *pcWriteBuffer, size_t uxBufferLength)
+{
+    vTaskGetRunTimeStatistics(pcWriteBuffer, uxBufferLength);
 }
 #endif
 
@@ -1004,6 +1290,28 @@ UBaseType_t freertos_rs_queue_messages_waiting_from_isr(QueueHandle_t xQueue)
 }
 
 /**
+ * @brief Wrapper for xQueueIsQueueEmptyFromISR()
+ * Checks if a queue is empty from an ISR
+ * @param xQueue Queue handle
+ * @return BaseType_t - pdTRUE if queue is empty
+ */
+BaseType_t freertos_rs_queue_is_queue_empty_from_isr(QueueHandle_t xQueue)
+{
+    return xQueueIsQueueEmptyFromISR(xQueue);
+}
+
+/**
+ * @brief Wrapper for xQueueIsQueueFullFromISR()
+ * Checks if a queue is full from an ISR
+ * @param xQueue Queue handle
+ * @return BaseType_t - pdTRUE if queue is full
+ */
+BaseType_t freertos_rs_queue_is_queue_full_from_isr(QueueHandle_t xQueue)
+{
+    return xQueueIsQueueFullFromISR(xQueue);
+}
+
+/**
  * @brief Wrapper for uxQueueSpacesAvailable()
  * Returns the number of free spaces in a queue
  * @param xQueue Queue handle
@@ -1127,6 +1435,124 @@ TaskHandle_t freertos_rs_queue_get_mutex_holder_from_isr(QueueHandle_t xSemaphor
     return xQueueGetMutexHolderFromISR(xSemaphore);
 }
 #endif
+#endif
+
+/**
+ * @brief Wrapper for xQueuePeekFromISR()
+ * Peeks at an item in a queue from an ISR
+ * @param xQueue Queue handle
+ * @param pvBuffer Buffer to receive the item
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_queue_peek_from_isr(QueueHandle_t xQueue, void *pvBuffer)
+{
+    return xQueuePeekFromISR(xQueue, pvBuffer);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xQueueGetStaticBuffers()
+ * Gets the static buffers associated with a queue
+ * @param xQueue Queue handle
+ * @param ppucQueueStorage Pointer to receive queue storage buffer pointer
+ * @param ppxStaticQueue Pointer to receive static queue structure pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_queue_get_static_buffers(QueueHandle_t xQueue, uint8_t **ppucQueueStorage, void **ppxStaticQueue)
+{
+    return xQueueGenericGetStaticBuffers(xQueue, ppucQueueStorage, (StaticQueue_t**)ppxStaticQueue);
+}
+#endif
+
+/**
+ * @brief Wrapper for uxQueueGetQueueItemSize()
+ * Gets the size of items in a queue
+ * @param xQueue Queue handle
+ * @return UBaseType_t - Size of queue items in bytes
+ */
+UBaseType_t freertos_rs_queue_get_queue_item_size(QueueHandle_t xQueue)
+{
+    return uxQueueGetQueueItemSize(xQueue);
+}
+
+/**
+ * @brief Wrapper for uxQueueGetQueueLength()
+ * Gets the length of a queue
+ * @param xQueue Queue handle
+ * @return UBaseType_t - Maximum number of items the queue can hold
+ */
+UBaseType_t freertos_rs_queue_get_queue_length(QueueHandle_t xQueue)
+{
+    return uxQueueGetQueueLength(xQueue);
+}
+
+#if (configQUEUE_REGISTRY_SIZE > 0)
+/**
+ * @brief Wrapper for vQueueAddToRegistry()
+ * Adds a queue to the registry
+ * @param xQueue Handle of the queue
+ * @param pcQueueName Name to assign to the queue
+ */
+void freertos_rs_queue_add_to_registry(QueueHandle_t xQueue, const char *pcQueueName)
+{
+    vQueueAddToRegistry(xQueue, pcQueueName);
+}
+
+/**
+ * @brief Wrapper for vQueueUnregisterQueue()
+ * Removes a queue from the registry
+ * @param xQueue Handle of the queue
+ */
+void freertos_rs_queue_unregister_queue(QueueHandle_t xQueue)
+{
+    vQueueUnregisterQueue(xQueue);
+}
+
+/**
+ * @brief Wrapper for pcQueueGetName()
+ * Gets the name of a queue
+ * @param xQueue Handle of the queue
+ * @return const char* - Name of the queue
+ */
+const char* freertos_rs_queue_get_name(QueueHandle_t xQueue)
+{
+    return pcQueueGetName(xQueue);
+}
+#endif
+
+#if (configUSE_TRACE_FACILITY == 1)
+/**
+ * @brief Wrapper for vQueueSetQueueNumber()
+ * Sets the queue number for tracing
+ * @param xQueue Queue handle
+ * @param uxQueueNumber Queue number to set
+ */
+void freertos_rs_queue_set_queue_number(QueueHandle_t xQueue, UBaseType_t uxQueueNumber)
+{
+    vQueueSetQueueNumber(xQueue, uxQueueNumber);
+}
+
+/**
+ * @brief Wrapper for uxQueueGetQueueNumber()
+ * Gets the queue number for tracing
+ * @param xQueue Queue handle
+ * @return UBaseType_t - Queue number
+ */
+UBaseType_t freertos_rs_queue_get_queue_number(QueueHandle_t xQueue)
+{
+    return uxQueueGetQueueNumber(xQueue);
+}
+
+/**
+ * @brief Wrapper for ucQueueGetQueueType()
+ * Gets the type of a queue
+ * @param xQueue Queue handle
+ * @return uint8_t - Queue type
+ */
+uint8_t freertos_rs_queue_get_queue_type(QueueHandle_t xQueue)
+{
+    return ucQueueGetQueueType(xQueue);
+}
 #endif
 
 /*===========================================================================
@@ -1338,3 +1764,196 @@ UBaseType_t freertos_rs_semaphore_get_count_from_isr(SemaphoreHandle_t xSemaphor
 {
     return uxSemaphoreGetCountFromISR(xSemaphore);
 }
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xSemaphoreGetStaticBuffer()
+ * Gets the static buffer associated with a semaphore
+ * @param xSemaphore Semaphore handle
+ * @param ppxSemaphoreBuffer Pointer to receive semaphore buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_semaphore_get_static_buffer(SemaphoreHandle_t xSemaphore, StaticSemaphore_t **ppxSemaphoreBuffer)
+{
+    return xSemaphoreGetStaticBuffer(xSemaphore, ppxSemaphoreBuffer);
+}
+#endif
+
+/*===========================================================================
+ * EVENT GROUP FUNCTIONS
+ *===========================================================================*/
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xEventGroupCreate()
+ * Creates an event group
+ * @return EventGroupHandle_t - Handle to the created event group
+ */
+EventGroupHandle_t freertos_rs_event_group_create(void)
+{
+    return xEventGroupCreate();
+}
+#endif
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xEventGroupCreateStatic()
+ * Creates an event group using statically allocated memory
+ * @param pxEventGroupBuffer Pointer to event group buffer
+ * @return EventGroupHandle_t - Handle to the created event group
+ */
+EventGroupHandle_t freertos_rs_event_group_create_static(StaticEventGroup_t *pxEventGroupBuffer)
+{
+    return xEventGroupCreateStatic(pxEventGroupBuffer);
+}
+#endif
+
+/**
+ * @brief Wrapper for vEventGroupDelete()
+ * Deletes an event group
+ * @param xEventGroup Event group handle
+ */
+void freertos_rs_event_group_delete(EventGroupHandle_t xEventGroup)
+{
+    vEventGroupDelete(xEventGroup);
+}
+
+/**
+ * @brief Wrapper for xEventGroupSetBits()
+ * Sets bits in an event group
+ * @param xEventGroup Event group handle
+ * @param uxBitsToSet Bits to set
+ * @return EventBits_t - Value of event bits before setting
+ */
+EventBits_t freertos_rs_event_group_set_bits(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToSet)
+{
+    return xEventGroupSetBits(xEventGroup, uxBitsToSet);
+}
+
+/**
+ * @brief Wrapper for xEventGroupClearBits()
+ * Clears bits in an event group
+ * @param xEventGroup Event group handle
+ * @param uxBitsToClear Bits to clear
+ * @return EventBits_t - Value of event bits before clearing
+ */
+EventBits_t freertos_rs_event_group_clear_bits(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToClear)
+{
+    return xEventGroupClearBits(xEventGroup, uxBitsToClear);
+}
+
+/**
+ * @brief Wrapper for xEventGroupGetBits()
+ * Gets the current value of the event group bits
+ * @param xEventGroup Event group handle
+ * @return EventBits_t - Current value of event bits
+ */
+EventBits_t freertos_rs_event_group_get_bits(EventGroupHandle_t xEventGroup)
+{
+    return xEventGroupGetBits(xEventGroup);
+}
+
+/**
+ * @brief Wrapper for xEventGroupWaitBits()
+ * Waits for bits to be set in an event group
+ * @param xEventGroup Event group handle
+ * @param uxBitsToWaitFor Bits to wait for
+ * @param xClearOnExit Clear bits on exit
+ * @param xWaitForAllBits Wait for all bits or any bit
+ * @param xTicksToWait Ticks to wait
+ * @return EventBits_t - Value of event bits when condition was met
+ */
+EventBits_t freertos_rs_event_group_wait_bits(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToWaitFor, BaseType_t xClearOnExit, BaseType_t xWaitForAllBits, TickType_t xTicksToWait)
+{
+    return xEventGroupWaitBits(xEventGroup, uxBitsToWaitFor, xClearOnExit, xWaitForAllBits, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xEventGroupSync()
+ * Synchronizes tasks using an event group
+ * @param xEventGroup Event group handle
+ * @param uxBitsToSet Bits to set
+ * @param uxBitsToWaitFor Bits to wait for
+ * @param xTicksToWait Ticks to wait
+ * @return EventBits_t - Value of event bits when condition was met
+ */
+EventBits_t freertos_rs_event_group_sync(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToSet, const EventBits_t uxBitsToWaitFor, TickType_t xTicksToWait)
+{
+    return xEventGroupSync(xEventGroup, uxBitsToSet, uxBitsToWaitFor, xTicksToWait);
+}
+
+#if (configUSE_TRACE_FACILITY == 1)
+/**
+ * @brief Wrapper for xEventGroupSetBitsFromISR()
+ * Sets bits in an event group from an ISR
+ * @param xEventGroup Event group handle
+ * @param uxBitsToSet Bits to set
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_event_group_set_bits_from_isr(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToSet, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xEventGroupSetBitsFromISR(xEventGroup, uxBitsToSet, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xEventGroupClearBitsFromISR()
+ * Clears bits in an event group from an ISR
+ * @param xEventGroup Event group handle
+ * @param uxBitsToClear Bits to clear
+ * @return EventBits_t - Value of event bits before clearing
+ */
+EventBits_t freertos_rs_event_group_clear_bits_from_isr(EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToClear)
+{
+    return xEventGroupClearBitsFromISR(xEventGroup, uxBitsToClear);
+}
+#endif
+
+/**
+ * @brief Wrapper for xEventGroupGetBitsFromISR()
+ * Gets the current value of the event group bits from an ISR
+ * @param xEventGroup Event group handle
+ * @return EventBits_t - Current value of event bits
+ */
+EventBits_t freertos_rs_event_group_get_bits_from_isr(EventGroupHandle_t xEventGroup)
+{
+    return xEventGroupGetBitsFromISR(xEventGroup);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xEventGroupGetStaticBuffer()
+ * Gets the static buffer associated with an event group
+ * @param xEventGroup Event group handle
+ * @param ppxEventGroupBuffer Pointer to receive event group buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_event_group_get_static_buffer(EventGroupHandle_t xEventGroup, StaticEventGroup_t **ppxEventGroupBuffer)
+{
+    return xEventGroupGetStaticBuffer(xEventGroup, ppxEventGroupBuffer);
+}
+#endif
+
+#if (configUSE_TRACE_FACILITY == 1)
+/**
+ * @brief Wrapper for uxEventGroupGetNumber()
+ * Gets the event group number for tracing
+ * @param xEventGroup Event group handle
+ * @return UBaseType_t - Event group number
+ */
+UBaseType_t freertos_rs_event_group_get_number(EventGroupHandle_t xEventGroup)
+{
+    return uxEventGroupGetNumber(xEventGroup);
+}
+
+/**
+ * @brief Wrapper for vEventGroupSetNumber()
+ * Sets the event group number for tracing
+ * @param xEventGroup Event group handle
+ * @param uxEventGroupNumber Event group number to set
+ */
+void freertos_rs_event_group_set_number(EventGroupHandle_t xEventGroup, UBaseType_t uxEventGroupNumber)
+{
+    vEventGroupSetNumber(xEventGroup, uxEventGroupNumber);
+}
+#endif
