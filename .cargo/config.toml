@@ -1,0 +1,11 @@
+[build]
+target = "thumbv7em-none-eabihf"
+# target = "thumbv7m-none-eabi"
+
+[target.thumbv7em-none-eabihf]
+rustflags = [
+  "--emit=obj",
+  "-O",
+  "-C", "target-cpu=cortex-m7",
+  "-C", "linker=rust-lld",
+] 

@@ -1,0 +1,15 @@
+[package]
+name = "FreeRtos-api-rs"
+version = "0.1.0"
+edition = "2024"
+authors = ["Your Name <your.email@example.com>"]
+description = "Rust wrapper for FreeRTOS APIs"
+license = "MIT"
+repository = "https://github.com/yourusername/freertos-api-rs"
+keywords = ["freertos", "rtos", "embedded", "no-std"]
+categories = ["embedded", "no-std", "api-bindings"]
+
+[lib]
+crate-type = ["staticlib"]
+
+
