@@ -18,6 +18,8 @@
 #include "timers.h"
 #include "stream_buffer.h"
 #include "message_buffer.h"
+#include "atomic.h"
+#include "list.h"
 
 /*===========================================================================
  * TASK CREATION FUNCTIONS
@@ -1957,3 +1959,1086 @@ void freertos_rs_event_group_set_number(EventGroupHandle_t xEventGroup, UBaseTyp
     vEventGroupSetNumber(xEventGroup, uxEventGroupNumber);
 }
 #endif
+
+/*===========================================================================
+ * TIMER FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_TIMERS == 1)
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTimerCreate()
+ * Creates a software timer
+ * @param pcTimerName Name for the timer
+ * @param xTimerPeriod Timer period in ticks
+ * @param uxAutoReload Auto-reload flag
+ * @param pvTimerID Timer ID
+ * @param pxCallbackFunction Callback function
+ * @return TimerHandle_t - Handle to the created timer
+ */
+TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
+{
+    return xTimerCreate(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction);
+}
+#endif
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTimerCreateStatic()
+ * Creates a software timer using statically allocated memory
+ * @param pcTimerName Name for the timer
+ * @param xTimerPeriod Timer period in ticks
+ * @param uxAutoReload Auto-reload flag
+ * @param pvTimerID Timer ID
+ * @param pxCallbackFunction Callback function
+ * @param pxTimerBuffer Timer buffer
+ * @return TimerHandle_t - Handle to the created timer
+ */
+TimerHandle_t freertos_rs_timer_create_static(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction, StaticTimer_t *pxTimerBuffer)
+{
+    return xTimerCreateStatic(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction, pxTimerBuffer);
+}
+#endif
+
+/**
+ * @brief Wrapper for xTimerDelete()
+ * Deletes a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_delete(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerDelete(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerStart()
+ * Starts a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_start(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerStart(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerStop()
+ * Stops a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_stop(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerStop(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerReset()
+ * Resets a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_reset(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerReset(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerChangePeriod()
+ * Changes the period of a software timer
+ * @param xTimer Timer handle
+ * @param xNewPeriod New period in ticks
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_change_period(TimerHandle_t xTimer, TickType_t xNewPeriod, TickType_t xTicksToWait)
+{
+    return xTimerChangePeriod(xTimer, xNewPeriod, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerStartFromISR()
+ * Starts a software timer from an ISR
+ * @param xTimer Timer handle
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_start_from_isr(TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTimerStartFromISR(xTimer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xTimerStopFromISR()
+ * Stops a software timer from an ISR
+ * @param xTimer Timer handle
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_stop_from_isr(TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTimerStopFromISR(xTimer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xTimerResetFromISR()
+ * Resets a software timer from an ISR
+ * @param xTimer Timer handle
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_reset_from_isr(TimerHandle_t xTimer, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTimerResetFromISR(xTimer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xTimerChangePeriodFromISR()
+ * Changes the period of a software timer from an ISR
+ * @param xTimer Timer handle
+ * @param xNewPeriod New period in ticks
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_change_period_from_isr(TimerHandle_t xTimer, TickType_t xNewPeriod, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTimerChangePeriodFromISR(xTimer, xNewPeriod, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xTimerIsTimerActive()
+ * Checks if a timer is active
+ * @param xTimer Timer handle
+ * @return BaseType_t - pdTRUE if active
+ */
+BaseType_t freertos_rs_timer_is_timer_active(TimerHandle_t xTimer)
+{
+    return xTimerIsTimerActive(xTimer);
+}
+
+/**
+ * @brief Wrapper for xTimerGetTimerDaemonTaskHandle()
+ * Gets the handle of the timer daemon task
+ * @return TaskHandle_t - Handle of the timer daemon task
+ */
+TaskHandle_t freertos_rs_timer_get_timer_daemon_task_handle(void)
+{
+    return xTimerGetTimerDaemonTaskHandle();
+}
+
+/**
+ * @brief Wrapper for xTimerGetPeriod()
+ * Gets the period of a timer
+ * @param xTimer Timer handle
+ * @return TickType_t - Timer period
+ */
+TickType_t freertos_rs_timer_get_period(TimerHandle_t xTimer)
+{
+    return xTimerGetPeriod(xTimer);
+}
+
+/**
+ * @brief Wrapper for xTimerGetExpiryTime()
+ * Gets the expiry time of a timer
+ * @param xTimer Timer handle
+ * @return TickType_t - Timer expiry time
+ */
+TickType_t freertos_rs_timer_get_expiry_time(TimerHandle_t xTimer)
+{
+    return xTimerGetExpiryTime(xTimer);
+}
+
+/**
+ * @brief Wrapper for pcTimerGetName()
+ * Gets the name of a timer
+ * @param xTimer Timer handle
+ * @return const char* - Timer name
+ */
+const char* freertos_rs_timer_get_name(TimerHandle_t xTimer)
+{
+    return pcTimerGetName(xTimer);
+}
+
+/**
+ * @brief Wrapper for pvTimerGetTimerID()
+ * Gets the ID of a timer
+ * @param xTimer Timer handle
+ * @return void* - Timer ID
+ */
+void* freertos_rs_timer_get_timer_id(TimerHandle_t xTimer)
+{
+    return pvTimerGetTimerID(xTimer);
+}
+
+/**
+ * @brief Wrapper for vTimerSetTimerID()
+ * Sets the ID of a timer
+ * @param xTimer Timer handle
+ * @param pvNewID New timer ID
+ */
+void freertos_rs_timer_set_timer_id(TimerHandle_t xTimer, void *pvNewID)
+{
+    vTimerSetTimerID(xTimer, pvNewID);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTimerGetStaticBuffer()
+ * Gets the static buffer associated with a timer
+ * @param xTimer Timer handle
+ * @param ppxTimerBuffer Pointer to receive timer buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_timer_get_static_buffer(TimerHandle_t xTimer, StaticTimer_t **ppxTimerBuffer)
+{
+    return xTimerGetStaticBuffer(xTimer, ppxTimerBuffer);
+}
+#endif
+
+#if (configUSE_TRACE_FACILITY == 1)
+/**
+ * @brief Wrapper for uxTimerGetTimerNumber()
+ * Gets the timer number for tracing
+ * @param xTimer Timer handle
+ * @return UBaseType_t - Timer number
+ */
+UBaseType_t freertos_rs_timer_get_timer_number(TimerHandle_t xTimer)
+{
+    return uxTimerGetTimerNumber(xTimer);
+}
+
+/**
+ * @brief Wrapper for vTimerSetTimerNumber()
+ * Sets the timer number for tracing
+ * @param xTimer Timer handle
+ * @param uxTimerNumber Timer number to set
+ */
+void freertos_rs_timer_set_timer_number(TimerHandle_t xTimer, UBaseType_t uxTimerNumber)
+{
+    vTimerSetTimerNumber(xTimer, uxTimerNumber);
+}
+#endif
+
+/**
+ * @brief Wrapper for xTimerPendFunctionCall()
+ * Pends a function call to be executed by the timer daemon task
+ * @param xFunctionToPend Function to execute
+ * @param pvParameter1 First parameter
+ * @param ulParameter2 Second parameter
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_pend_function_call(PendedFunction_t xFunctionToPend, void *pvParameter1, uint32_t ulParameter2, TickType_t xTicksToWait)
+{
+    return xTimerPendFunctionCall(xFunctionToPend, pvParameter1, ulParameter2, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerPendFunctionCallFromISR()
+ * Pends a function call from an ISR to be executed by the timer daemon task
+ * @param xFunctionToPend Function to execute
+ * @param pvParameter1 First parameter
+ * @param ulParameter2 Second parameter
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_pend_function_call_from_isr(PendedFunction_t xFunctionToPend, void *pvParameter1, uint32_t ulParameter2, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xTimerPendFunctionCallFromISR(xFunctionToPend, pvParameter1, ulParameter2, pxHigherPriorityTaskWoken);
+}
+
+#endif /* configUSE_TIMERS */
+
+/*===========================================================================
+ * STREAM BUFFER FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xStreamBufferCreate()
+ * Creates a stream buffer
+ * @param xBufferSizeBytes Size of the buffer in bytes
+ * @param xTriggerLevelBytes Trigger level in bytes
+ * @return StreamBufferHandle_t - Handle to the created stream buffer
+ */
+StreamBufferHandle_t freertos_rs_stream_buffer_create(size_t xBufferSizeBytes, size_t xTriggerLevelBytes)
+{
+    return xStreamBufferCreate(xBufferSizeBytes, xTriggerLevelBytes);
+}
+#endif
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xStreamBufferCreateStatic()
+ * Creates a stream buffer using statically allocated memory
+ * @param xBufferSizeBytes Size of the buffer in bytes
+ * @param xTriggerLevelBytes Trigger level in bytes
+ * @param pucStreamBufferStorageArea Storage area for the buffer
+ * @param pxStaticStreamBuffer Static stream buffer structure
+ * @return StreamBufferHandle_t - Handle to the created stream buffer
+ */
+StreamBufferHandle_t freertos_rs_stream_buffer_create_static(size_t xBufferSizeBytes, size_t xTriggerLevelBytes, uint8_t *pucStreamBufferStorageArea, StaticStreamBuffer_t *pxStaticStreamBuffer)
+{
+    return xStreamBufferCreateStatic(xBufferSizeBytes, xTriggerLevelBytes, pucStreamBufferStorageArea, pxStaticStreamBuffer);
+}
+#endif
+
+/**
+ * @brief Wrapper for vStreamBufferDelete()
+ * Deletes a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ */
+void freertos_rs_stream_buffer_delete(StreamBufferHandle_t xStreamBuffer)
+{
+    vStreamBufferDelete(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferSend()
+ * Sends data to a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param pvTxData Data to send
+ * @param xDataLengthBytes Length of data in bytes
+ * @param xTicksToWait Ticks to wait
+ * @return size_t - Number of bytes sent
+ */
+size_t freertos_rs_stream_buffer_send(StreamBufferHandle_t xStreamBuffer, const void *pvTxData, size_t xDataLengthBytes, TickType_t xTicksToWait)
+{
+    return xStreamBufferSend(xStreamBuffer, pvTxData, xDataLengthBytes, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferReceive()
+ * Receives data from a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param pvRxData Buffer to receive data
+ * @param xBufferLengthBytes Length of receive buffer
+ * @param xTicksToWait Ticks to wait
+ * @return size_t - Number of bytes received
+ */
+size_t freertos_rs_stream_buffer_receive(StreamBufferHandle_t xStreamBuffer, void *pvRxData, size_t xBufferLengthBytes, TickType_t xTicksToWait)
+{
+    return xStreamBufferReceive(xStreamBuffer, pvRxData, xBufferLengthBytes, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferReset()
+ * Resets a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_stream_buffer_reset(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferReset(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferSendFromISR()
+ * Sends data to a stream buffer from an ISR
+ * @param xStreamBuffer Stream buffer handle
+ * @param pvTxData Data to send
+ * @param xDataLengthBytes Length of data in bytes
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return size_t - Number of bytes sent
+ */
+size_t freertos_rs_stream_buffer_send_from_isr(StreamBufferHandle_t xStreamBuffer, const void *pvTxData, size_t xDataLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xStreamBufferSendFromISR(xStreamBuffer, pvTxData, xDataLengthBytes, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferReceiveFromISR()
+ * Receives data from a stream buffer from an ISR
+ * @param xStreamBuffer Stream buffer handle
+ * @param pvRxData Buffer to receive data
+ * @param xBufferLengthBytes Length of receive buffer
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return size_t - Number of bytes received
+ */
+size_t freertos_rs_stream_buffer_receive_from_isr(StreamBufferHandle_t xStreamBuffer, void *pvRxData, size_t xBufferLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xStreamBufferReceiveFromISR(xStreamBuffer, pvRxData, xBufferLengthBytes, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferIsEmpty()
+ * Checks if a stream buffer is empty
+ * @param xStreamBuffer Stream buffer handle
+ * @return BaseType_t - pdTRUE if empty
+ */
+BaseType_t freertos_rs_stream_buffer_is_empty(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferIsEmpty(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferIsFull()
+ * Checks if a stream buffer is full
+ * @param xStreamBuffer Stream buffer handle
+ * @return BaseType_t - pdTRUE if full
+ */
+BaseType_t freertos_rs_stream_buffer_is_full(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferIsFull(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferBytesAvailable()
+ * Gets the number of bytes available in a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @return size_t - Number of bytes available
+ */
+size_t freertos_rs_stream_buffer_bytes_available(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferBytesAvailable(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferSpacesAvailable()
+ * Gets the number of free spaces available in a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @return size_t - Number of free spaces available
+ */
+size_t freertos_rs_stream_buffer_spaces_available(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferSpacesAvailable(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferSetTriggerLevel()
+ * Sets the trigger level of a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param xTriggerLevel New trigger level
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_stream_buffer_set_trigger_level(StreamBufferHandle_t xStreamBuffer, size_t xTriggerLevel)
+{
+    return xStreamBufferSetTriggerLevel(xStreamBuffer, xTriggerLevel);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xStreamBufferGetStaticBuffers()
+ * Gets the static buffers associated with a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param ppucStreamBufferStorageArea Pointer to receive storage area pointer
+ * @param ppxStaticStreamBuffer Pointer to receive static stream buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_stream_buffer_get_static_buffers(StreamBufferHandle_t xStreamBuffer, uint8_t **ppucStreamBufferStorageArea, StaticStreamBuffer_t **ppxStaticStreamBuffer)
+{
+    return xStreamBufferGetStaticBuffers(xStreamBuffer, ppucStreamBufferStorageArea, ppxStaticStreamBuffer);
+}
+#endif
+
+#endif /* configUSE_STREAM_BUFFERS */
+
+/*===========================================================================
+ * MESSAGE BUFFER FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_MESSAGE_BUFFERS == 1)
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xMessageBufferCreate()
+ * Creates a message buffer
+ * @param xBufferSizeBytes Size of the buffer in bytes
+ * @return MessageBufferHandle_t - Handle to the created message buffer
+ */
+MessageBufferHandle_t freertos_rs_message_buffer_create(size_t xBufferSizeBytes)
+{
+    return xMessageBufferCreate(xBufferSizeBytes);
+}
+#endif
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xMessageBufferCreateStatic()
+ * Creates a message buffer using statically allocated memory
+ * @param xBufferSizeBytes Size of the buffer in bytes
+ * @param pucMessageBufferStorageArea Storage area for the buffer
+ * @param pxStaticMessageBuffer Static message buffer structure
+ * @return MessageBufferHandle_t - Handle to the created message buffer
+ */
+MessageBufferHandle_t freertos_rs_message_buffer_create_static(size_t xBufferSizeBytes, uint8_t *pucMessageBufferStorageArea, StaticMessageBuffer_t *pxStaticMessageBuffer)
+{
+    return xMessageBufferCreateStatic(xBufferSizeBytes, pucMessageBufferStorageArea, pxStaticMessageBuffer);
+}
+#endif
+
+/**
+ * @brief Wrapper for vMessageBufferDelete()
+ * Deletes a message buffer
+ * @param xMessageBuffer Message buffer handle
+ */
+void freertos_rs_message_buffer_delete(MessageBufferHandle_t xMessageBuffer)
+{
+    vMessageBufferDelete(xMessageBuffer);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferSend()
+ * Sends a message to a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @param pvTxData Message to send
+ * @param xDataLengthBytes Length of message in bytes
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_message_buffer_send(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, TickType_t xTicksToWait)
+{
+    return xMessageBufferSend(xMessageBuffer, pvTxData, xDataLengthBytes, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferReceive()
+ * Receives a message from a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @param pvRxData Buffer to receive message
+ * @param xBufferLengthBytes Length of receive buffer
+ * @param xTicksToWait Ticks to wait
+ * @return size_t - Length of received message
+ */
+size_t freertos_rs_message_buffer_receive(MessageBufferHandle_t xMessageBuffer, void *pvRxData, size_t xBufferLengthBytes, TickType_t xTicksToWait)
+{
+    return xMessageBufferReceive(xMessageBuffer, pvRxData, xBufferLengthBytes, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferReset()
+ * Resets a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_message_buffer_reset(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferReset(xMessageBuffer);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferSendFromISR()
+ * Sends a message to a message buffer from an ISR
+ * @param xMessageBuffer Message buffer handle
+ * @param pvTxData Message to send
+ * @param xDataLengthBytes Length of message in bytes
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_message_buffer_send_from_isr(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xMessageBufferSendFromISR(xMessageBuffer, pvTxData, xDataLengthBytes, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferReceiveFromISR()
+ * Receives a message from a message buffer from an ISR
+ * @param xMessageBuffer Message buffer handle
+ * @param pvRxData Buffer to receive message
+ * @param xBufferLengthBytes Length of receive buffer
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return size_t - Length of received message
+ */
+size_t freertos_rs_message_buffer_receive_from_isr(MessageBufferHandle_t xMessageBuffer, void *pvRxData, size_t xBufferLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xMessageBufferReceiveFromISR(xMessageBuffer, pvRxData, xBufferLengthBytes, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferIsEmpty()
+ * Checks if a message buffer is empty
+ * @param xMessageBuffer Message buffer handle
+ * @return BaseType_t - pdTRUE if empty
+ */
+BaseType_t freertos_rs_message_buffer_is_empty(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferIsEmpty(xMessageBuffer);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferIsFull()
+ * Checks if a message buffer is full
+ * @param xMessageBuffer Message buffer handle
+ * @return BaseType_t - pdTRUE if full
+ */
+BaseType_t freertos_rs_message_buffer_is_full(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferIsFull(xMessageBuffer);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferSpacesAvailable()
+ * Gets the number of free spaces available in a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @return size_t - Number of free spaces available
+ */
+size_t freertos_rs_message_buffer_spaces_available(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferSpacesAvailable(xMessageBuffer);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferNextLengthBytes()
+ * Gets the length of the next message in a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @return size_t - Length of next message
+ */
+size_t freertos_rs_message_buffer_next_length_bytes(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferNextLengthBytes(xMessageBuffer);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xMessageBufferGetStaticBuffers()
+ * Gets the static buffers associated with a message buffer
+ * @param xMessageBuffer Message buffer handle
+ * @param ppucMessageBufferStorageArea Pointer to receive storage area pointer
+ * @param ppxStaticMessageBuffer Pointer to receive static message buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_message_buffer_get_static_buffers(MessageBufferHandle_t xMessageBuffer, uint8_t **ppucMessageBufferStorageArea, StaticMessageBuffer_t **ppxStaticMessageBuffer)
+{
+    return xMessageBufferGetStaticBuffers(xMessageBuffer, ppucMessageBufferStorageArea, ppxStaticMessageBuffer);
+}
+#endif
+
+#endif /* configUSE_MESSAGE_BUFFERS */
+
+/*===========================================================================
+ * ATOMIC OPERATION FUNCTIONS
+ *===========================================================================*/
+
+/**
+ * @brief Wrapper for Atomic_Add_u32()
+ * Atomically adds to a 32-bit unsigned value
+ * @param pAddend Pointer to the value to add to
+ * @param ulCount Value to add
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_add_u32(uint32_t *pAddend, uint32_t ulCount)
+{
+    return Atomic_Add_u32(pAddend, ulCount);
+}
+
+/**
+ * @brief Wrapper for Atomic_Subtract_u32()
+ * Atomically subtracts from a 32-bit unsigned value
+ * @param pMinuend Pointer to the value to subtract from
+ * @param ulCount Value to subtract
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_subtract_u32(uint32_t *pMinuend, uint32_t ulCount)
+{
+    return Atomic_Subtract_u32(pMinuend, ulCount);
+}
+
+/**
+ * @brief Wrapper for Atomic_Increment_u32()
+ * Atomically increments a 32-bit unsigned value
+ * @param pAddend Pointer to the value to increment
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_increment_u32(uint32_t *pAddend)
+{
+    return Atomic_Increment_u32(pAddend);
+}
+
+/**
+ * @brief Wrapper for Atomic_Decrement_u32()
+ * Atomically decrements a 32-bit unsigned value
+ * @param pMinuend Pointer to the value to decrement
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_decrement_u32(uint32_t *pMinuend)
+{
+    return Atomic_Decrement_u32(pMinuend);
+}
+
+/**
+ * @brief Wrapper for Atomic_OR_u32()
+ * Atomically performs bitwise OR on a 32-bit unsigned value
+ * @param pDestination Pointer to the destination value
+ * @param ulValue Value to OR with
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_or_u32(uint32_t *pDestination, uint32_t ulValue)
+{
+    return Atomic_OR_u32(pDestination, ulValue);
+}
+
+/**
+ * @brief Wrapper for Atomic_AND_u32()
+ * Atomically performs bitwise AND on a 32-bit unsigned value
+ * @param pDestination Pointer to the destination value
+ * @param ulValue Value to AND with
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_and_u32(uint32_t *pDestination, uint32_t ulValue)
+{
+    return Atomic_AND_u32(pDestination, ulValue);
+}
+
+/**
+ * @brief Wrapper for Atomic_NAND_u32()
+ * Atomically performs bitwise NAND on a 32-bit unsigned value
+ * @param pDestination Pointer to the destination value
+ * @param ulValue Value to NAND with
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_nand_u32(uint32_t *pDestination, uint32_t ulValue)
+{
+    return Atomic_NAND_u32(pDestination, ulValue);
+}
+
+/**
+ * @brief Wrapper for Atomic_XOR_u32()
+ * Atomically performs bitwise XOR on a 32-bit unsigned value
+ * @param pDestination Pointer to the destination value
+ * @param ulValue Value to XOR with
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_xor_u32(uint32_t *pDestination, uint32_t ulValue)
+{
+    return Atomic_XOR_u32(pDestination, ulValue);
+}
+
+/**
+ * @brief Wrapper for Atomic_CompareAndSwap_u32()
+ * Atomically compares and swaps a 32-bit unsigned value
+ * @param pDestination Pointer to the destination value
+ * @param ulExchange Value to exchange with
+ * @param ulComparand Value to compare against
+ * @return uint32_t - Previous value
+ */
+uint32_t freertos_rs_atomic_compare_and_swap_u32(uint32_t *pDestination, uint32_t ulExchange, uint32_t ulComparand)
+{
+    return Atomic_CompareAndSwap_u32(pDestination, ulExchange, ulComparand);
+}
+
+/**
+ * @brief Wrapper for Atomic_SwapPointers_p32()
+ * Atomically swaps two 32-bit pointers
+ * @param ppvDestination Pointer to the destination pointer
+ * @param pvExchange Pointer to exchange with
+ * @return void* - Previous pointer value
+ */
+void* freertos_rs_atomic_swap_pointers_p32(void **ppvDestination, void *pvExchange)
+{
+    return Atomic_SwapPointers_p32(ppvDestination, pvExchange);
+}
+
+/**
+ * @brief Wrapper for Atomic_CompareAndSwapPointers_p32()
+ * Atomically compares and swaps two 32-bit pointers
+ * @param ppvDestination Pointer to the destination pointer
+ * @param pvExchange Pointer to exchange with
+ * @param pvComparand Pointer to compare against
+ * @return void* - Previous pointer value
+ */
+void* freertos_rs_atomic_compare_and_swap_pointers_p32(void **ppvDestination, void *pvExchange, void *pvComparand)
+{
+    return Atomic_CompareAndSwapPointers_p32(ppvDestination, pvExchange, pvComparand);
+}
+
+/*===========================================================================
+ * LIST OPERATION FUNCTIONS
+ *===========================================================================*/
+
+/**
+ * @brief Wrapper for vListInitialise()
+ * Initializes a list
+ * @param pxList Pointer to the list to initialize
+ */
+void freertos_rs_list_initialise(List_t *pxList)
+{
+    vListInitialise(pxList);
+}
+
+/**
+ * @brief Wrapper for vListInitialiseItem()
+ * Initializes a list item
+ * @param pxItem Pointer to the list item to initialize
+ */
+void freertos_rs_list_initialise_item(ListItem_t *pxItem)
+{
+    vListInitialiseItem(pxItem);
+}
+
+/**
+ * @brief Wrapper for vListInsert()
+ * Inserts a list item into a list in priority order
+ * @param pxList Pointer to the list
+ * @param pxNewListItem Pointer to the list item to insert
+ */
+void freertos_rs_list_insert(List_t *pxList, ListItem_t *pxNewListItem)
+{
+    vListInsert(pxList, pxNewListItem);
+}
+
+/**
+ * @brief Wrapper for vListInsertEnd()
+ * Inserts a list item at the end of a list
+ * @param pxList Pointer to the list
+ * @param pxNewListItem Pointer to the list item to insert
+ */
+void freertos_rs_list_insert_end(List_t *pxList, ListItem_t *pxNewListItem)
+{
+    vListInsertEnd(pxList, pxNewListItem);
+}
+
+/**
+ * @brief Wrapper for uxListRemove()
+ * Removes a list item from a list
+ * @param pxItemToRemove Pointer to the list item to remove
+ * @return UBaseType_t - Number of items remaining in the list
+ */
+UBaseType_t freertos_rs_list_remove(ListItem_t *pxItemToRemove)
+{
+    return uxListRemove(pxItemToRemove);
+}
+
+/**
+ * @brief Wrapper for listGET_OWNER_OF_NEXT_ENTRY()
+ * Gets the owner of the next entry in a list
+ * @param pxTCB Pointer to current TCB
+ * @param pxList Pointer to the list
+ * @return void* - Owner of the next entry
+ */
+void* freertos_rs_list_get_owner_of_next_entry(void *pxTCB, List_t *pxList)
+{
+    return listGET_OWNER_OF_NEXT_ENTRY(pxTCB, pxList);
+}
+
+/**
+ * @brief Wrapper for listGET_OWNER_OF_HEAD_ENTRY()
+ * Gets the owner of the head entry in a list
+ * @param pxList Pointer to the list
+ * @return void* - Owner of the head entry
+ */
+void* freertos_rs_list_get_owner_of_head_entry(List_t *pxList)
+{
+    return listGET_OWNER_OF_HEAD_ENTRY(pxList);
+}
+
+/**
+ * @brief Wrapper for listIS_EMPTY()
+ * Checks if a list is empty
+ * @param pxList Pointer to the list
+ * @return BaseType_t - pdTRUE if empty
+ */
+BaseType_t freertos_rs_list_is_empty(List_t *pxList)
+{
+    return listIS_EMPTY(pxList);
+}
+
+/**
+ * @brief Wrapper for listCURRENT_LIST_LENGTH()
+ * Gets the current length of a list
+ * @param pxList Pointer to the list
+ * @return UBaseType_t - Current list length
+ */
+UBaseType_t freertos_rs_list_current_list_length(List_t *pxList)
+{
+    return listCURRENT_LIST_LENGTH(pxList);
+}
+
+/**
+ * @brief Wrapper for listGET_ITEM_VALUE_OF_HEAD_ENTRY()
+ * Gets the item value of the head entry
+ * @param pxList Pointer to the list
+ * @return TickType_t - Item value of head entry
+ */
+TickType_t freertos_rs_list_get_item_value_of_head_entry(List_t *pxList)
+{
+    return listGET_ITEM_VALUE_OF_HEAD_ENTRY(pxList);
+}
+
+/**
+ * @brief Wrapper for listSET_LIST_ITEM_OWNER()
+ * Sets the owner of a list item
+ * @param pxListItem Pointer to the list item
+ * @param pxOwner Pointer to the owner
+ */
+void freertos_rs_list_set_list_item_owner(ListItem_t *pxListItem, void *pxOwner)
+{
+    listSET_LIST_ITEM_OWNER(pxListItem, pxOwner);
+}
+
+/**
+ * @brief Wrapper for listGET_LIST_ITEM_OWNER()
+ * Gets the owner of a list item
+ * @param pxListItem Pointer to the list item
+ * @return void* - Owner of the list item
+ */
+void* freertos_rs_list_get_list_item_owner(ListItem_t *pxListItem)
+{
+    return listGET_LIST_ITEM_OWNER(pxListItem);
+}
+
+/**
+ * @brief Wrapper for listSET_LIST_ITEM_VALUE()
+ * Sets the value of a list item
+ * @param pxListItem Pointer to the list item
+ * @param xValue Value to set
+ */
+void freertos_rs_list_set_list_item_value(ListItem_t *pxListItem, TickType_t xValue)
+{
+    listSET_LIST_ITEM_VALUE(pxListItem, xValue);
+}
+
+/**
+ * @brief Wrapper for listGET_LIST_ITEM_VALUE()
+ * Gets the value of a list item
+ * @param pxListItem Pointer to the list item
+ * @return TickType_t - Value of the list item
+ */
+TickType_t freertos_rs_list_get_list_item_value(ListItem_t *pxListItem)
+{
+    return listGET_LIST_ITEM_VALUE(pxListItem);
+}
+
+/**
+ * @brief Wrapper for listGET_HEAD_ENTRY()
+ * Gets the head entry of a list
+ * @param pxList Pointer to the list
+ * @return ListItem_t* - Pointer to the head entry
+ */
+ListItem_t* freertos_rs_list_get_head_entry(List_t *pxList)
+{
+    return listGET_HEAD_ENTRY(pxList);
+}
+
+/**
+ * @brief Wrapper for listGET_NEXT()
+ * Gets the next item in a list
+ * @param pxListItem Pointer to the current list item
+ * @return ListItem_t* - Pointer to the next list item
+ */
+ListItem_t* freertos_rs_list_get_next(ListItem_t *pxListItem)
+{
+    return listGET_NEXT(pxListItem);
+}
+
+/**
+ * @brief Wrapper for listLIST_ITEM_CONTAINER()
+ * Gets the container list of a list item
+ * @param pxListItem Pointer to the list item
+ * @return List_t* - Pointer to the container list
+ */
+List_t* freertos_rs_list_list_item_container(ListItem_t *pxListItem)
+{
+    return listLIST_ITEM_CONTAINER(pxListItem);
+}
+
+/*===========================================================================
+ * TIMER FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_TIMERS == 1)
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTimerCreate()
+ * Creates a software timer
+ * @param pcTimerName Name for the timer
+ * @param xTimerPeriod Timer period in ticks
+ * @param uxAutoReload Auto-reload flag
+ * @param pvTimerID Timer ID
+ * @param pxCallbackFunction Callback function
+ * @return TimerHandle_t - Handle to the created timer
+ */
+TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
+{
+    return xTimerCreate(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction);
+}
+#endif
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xTimerCreateStatic()
+ * Creates a software timer using statically allocated memory
+ * @param pcTimerName Name for the timer
+ * @param xTimerPeriod Timer period in ticks
+ * @param uxAutoReload Auto-reload flag
+ * @param pvTimerID Timer ID
+ * @param pxCallbackFunction Callback function
+ * @param pxTimerBuffer Timer buffer
+ * @return TimerHandle_t - Handle to the created timer
+ */
+TimerHandle_t freertos_rs_timer_create_static(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction, StaticTimer_t *pxTimerBuffer)
+{
+    return xTimerCreateStatic(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction, pxTimerBuffer);
+}
+#endif
+
+/**
+ * @brief Wrapper for vTimerDelete()
+ * Deletes a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_delete(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerDelete(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerStart()
+ * Starts a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_start(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerStart(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerStop()
+ * Stops a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_stop(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerStop(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerReset()
+ * Resets a software timer
+ * @param xTimer Timer handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_reset(TimerHandle_t xTimer, TickType_t xTicksToWait)
+{
+    return xTimerReset(xTimer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xTimerChangePeriod()
+ * Changes the period of a software timer
+ * @param xTimer Timer handle
+ * @param xNewPeriod New period in ticks
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_change_period(TimerHandle_t xTimer, TickType_t xNewPeriod, TickType_t xTicksToWait)
+{
+    return xTimerChangePeriod(xTimer, xNewPeriod, xTicksToWait);
+}
+
+#endif /* configUSE_TIMERS */

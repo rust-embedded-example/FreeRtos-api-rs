@@ -1,15 +1,3 @@
-/*!
- * FreeRTOS Co-routine Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS co-routine functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Note: Co-routines are deprecated in favor of tasks in modern FreeRTOS applications.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosUBaseType, FreeRtosVoidPtr
 };

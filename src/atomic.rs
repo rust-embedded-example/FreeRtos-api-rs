@@ -1,19 +1,3 @@
-/*!
- * FreeRTOS Atomic Operations Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS atomic operation functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
-// No imports needed for atomic operations
-
-//===========================================================================
-// EXTERNAL C FUNCTION DECLARATIONS - ATOMIC OPERATIONS
-//===========================================================================
-
 unsafe extern "C" {
     /// Wrapper for Atomic_Add_u32()
     /// Atomically adds to a 32-bit unsigned value

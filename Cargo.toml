@@ -1,5 +1,5 @@
 [package]
-name = "freertos-api-rs"
+name = "freertos_api_rs"
 version = "0.1.0"
 edition = "2024"
 authors = ["Your Name <your.email@example.com>"]
@@ -11,5 +11,11 @@ categories = ["embedded", "no-std", "api-bindings"]
 
 [lib]
 crate-type = ["staticlib"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
 
 

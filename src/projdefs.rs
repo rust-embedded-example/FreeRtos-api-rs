@@ -1,15 +1,3 @@
-/*!
- * FreeRTOS Project Definitions Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS project definitions and constants.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Only includes FreeRTOS public APIs and constants from projdefs.h.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{FreeRtosBaseType, FreeRtosTickType};
 
 //===========================================================================

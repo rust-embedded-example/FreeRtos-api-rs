@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "freertos-api-rs"
+name = "freertos_api_rs"
 version = "0.1.0"

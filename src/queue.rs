@@ -1,13 +1,3 @@
-/*!
- * FreeRTOS Queue Management Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS queue management functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosQueueHandle, FreeRtosUBaseType,
     FreeRtosVoidPtr, FreeRtosQueueSetHandle, FreeRtosQueueSetMemberHandle, FreeRtosTaskHandle

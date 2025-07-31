@@ -1,13 +1,3 @@
-/*!
- * FreeRTOS List Operations Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS list operation functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosUBaseType, FreeRtosTickType, FreeRtosVoidPtr
 };

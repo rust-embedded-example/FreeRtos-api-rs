@@ -1,12 +1,3 @@
-/*!
- * FreeRTOS Stream Buffer Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS stream buffer functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosStreamBufferHandle,
     FreeRtosVoidPtr

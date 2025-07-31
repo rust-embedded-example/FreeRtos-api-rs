@@ -1,15 +1,3 @@
-/*!
- * FreeRTOS Portable Layer Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS portable layer functions,
- * primarily memory management. The actual implementations are in api.c as C wrapper functions.
- * 
- * Only includes FreeRTOS public APIs from portable.h.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::FreeRtosVoidPtr;
 
 //===========================================================================

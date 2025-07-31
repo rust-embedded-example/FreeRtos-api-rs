@@ -1,16 +1,6 @@
-/*!
- * FreeRTOS Software Timers Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS software timer functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTimerHandle,
-    FreeRtosTimerCallback, FreeRtosVoidPtr
+    FreeRtosTimerCallback, FreeRtosVoidPtr, FreeRtosUBaseType
 };
 
 //===========================================================================
@@ -156,4 +146,48 @@ unsafe extern "C" {
         timer: FreeRtosTimerHandle,
         new_id: FreeRtosVoidPtr
     );
+
+    /// Wrapper for pcTimerGetName()
+    /// Gets the name of a timer
+    pub fn freertos_rs_timer_get_name(
+        timer: FreeRtosTimerHandle
+    ) -> *const u8;
+
+    /// Wrapper for xTimerGetStaticBuffer()
+    /// Gets the static buffer associated with a timer
+    pub fn freertos_rs_timer_get_static_buffer(
+        timer: FreeRtosTimerHandle,
+        timer_buffer: *mut FreeRtosVoidPtr
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for uxTimerGetTimerNumber()
+    /// Gets the timer number for tracing
+    pub fn freertos_rs_timer_get_timer_number(
+        timer: FreeRtosTimerHandle
+    ) -> FreeRtosUBaseType;
+
+    /// Wrapper for vTimerSetTimerNumber()
+    /// Sets the timer number for tracing
+    pub fn freertos_rs_timer_set_timer_number(
+        timer: FreeRtosTimerHandle,
+        timer_number: FreeRtosUBaseType
+    );
+
+    /// Wrapper for xTimerPendFunctionCall()
+    /// Pends a function call to be executed by the timer daemon task
+    pub fn freertos_rs_timer_pend_function_call(
+        function_to_pend: FreeRtosVoidPtr,
+        parameter1: FreeRtosVoidPtr,
+        parameter2: u32,
+        ticks_to_wait: FreeRtosTickType
+    ) -> FreeRtosBaseType;
+
+    /// Wrapper for xTimerPendFunctionCallFromISR()
+    /// Pends a function call from an ISR to be executed by the timer daemon task
+    pub fn freertos_rs_timer_pend_function_call_from_isr(
+        function_to_pend: FreeRtosVoidPtr,
+        parameter1: FreeRtosVoidPtr,
+        parameter2: u32,
+        higher_priority_task_woken: *mut FreeRtosBaseType
+    ) -> FreeRtosBaseType;
 }

@@ -1,15 +1,3 @@
-/*!
- * FreeRTOS Task Management Module
- * 
- * This module provides unsafe extern "C" declarations for FreeRTOS task management functions.
- * The actual implementations are in api.c as C wrapper functions.
- * 
- * Only includes FreeRTOS public APIs that are commonly used.
- * 
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTaskHandle, FreeRtosUBaseType,
     FreeRtosTaskFunction, FreeRtosConfigStackDepthType, FreeRtosStackType, FreeRtosStaticTask,

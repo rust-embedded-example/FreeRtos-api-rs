@@ -25,9 +25,6 @@
  * - FreeRTOS is properly configured and initialized
  * - Memory management follows FreeRTOS conventions
  * - Interrupt safety requirements are met
- *
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
  */
 
 #![no_std]
@@ -51,10 +48,46 @@ pub mod list;
 // Re-export commonly used types and functions
 pub use base::*;
 
+use task::{freertos_rs_task_delay,
+    freertos_rs_task_create,
+    freertos_rs_task_start_scheduler};
+
 use core::panic::PanicInfo;
 
-/// Panic handler - 在 no_std 环境中必需的
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
+
+/// Panic handler - 在 no_std 环境中必需的
+extern "C" fn led_task(_params: *mut core::ffi::c_void) {
+    loop {
+        // Toggle LED
+        unsafe {
+            freertos_rs_task_delay(500); // 500ms delay
+        }
+    }
+}
+
+// Main function
+#[unsafe(no_mangle)]
+pub extern "C" fn rust_create_led_task() {
+    // Create a task
+    let task_handle: *mut *const core::ffi::c_void = core::ptr::null_mut();
+    
+    unsafe {
+        freertos_rs_task_create(
+            led_task,
+            b"LED_Task\0".as_ptr(),
+            128, // Stack size
+            core::ptr::null_mut(),
+            1, // Priority
+            task_handle
+        );
+        
+        // Start the scheduler
+        freertos_rs_task_start_scheduler();
+    }
+}
+
+

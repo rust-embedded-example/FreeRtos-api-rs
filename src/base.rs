@@ -1,13 +1,3 @@
-/*!
- * FreeRTOS Base Types and Error Definitions
- *
- * This module provides the fundamental types and error definitions used
- * throughout the FreeRTOS Rust API wrapper.
- *
- * Copyright (c) 2024
- * SPDX-License-Identifier: MIT
- */
-
 use core::ffi::c_void;
 
 //===========================================================================
