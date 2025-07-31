@@ -1,27 +1,27 @@
-# FreeRTOS Rust 中间件示例
+# FreeRTOS Rust Middleware Example
 
-这是一个使用Rust制作FreeRTOS C语言工程中间件的示例项目。通过这个项目，你可以用Rust编写代码，编译成对象文件(.o)，然后在C语言的FreeRTOS工程中调用。
+This is an example project for creating FreeRTOS C project middleware using Rust. Through this project, you can write Rust code, compile it to object files (.o), and then call it from C language FreeRTOS projects.
 
-## 项目结构
+## Project Structure
 
 ```
 freertos-api-rs/
 ├── src/
-│   ├── lib.rs          # 主要示例代码
-│   ├── api.c           # FreeRTOS API C包装函数
-│   ├── base.rs         # 基础类型定义
-│   ├── task.rs         # 任务管理API
-│   ├── queue.rs        # 队列管理API
-│   ├── semphr.rs       # 信号量API
-│   ├── timers.rs       # 定时器API
-│   └── ...             # 其他模块
+│   ├── lib.rs          # Main example code
+│   ├── api.c           # FreeRTOS API C wrapper functions
+│   ├── base.rs         # Basic type definitions
+│   ├── task.rs         # Task management API
+│   ├── queue.rs        # Queue management API
+│   ├── semphr.rs       # Semaphore API
+│   ├── timers.rs       # Timer API
+│   └── ...             # Other modules
 ├── Cargo.toml
 └── README.md
 ```
 
-## 示例代码说明
+## Example Code Explanation
 
-### lib.rs 完整示例
+### Complete lib.rs Example
 
 ```rust
 pub use base::*;
@@ -37,61 +37,61 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-/// Panic handler - 在 no_std 环境中必需的
+/// LED task function - executes every 500ms
 extern "C" fn led_task(_params: *mut core::ffi::c_void) {
     loop {
-        // Toggle LED
+        // Toggle LED - add your LED control logic here
         unsafe {
             freertos_rs_task_delay(500); // 500ms delay
         }
     }
 }
 
-// Main function
-#[unsafe(no_mangle)]
+/// Function exported for C language calls - creates LED task and starts scheduler
+#[no_mangle]
 pub extern "C" fn rust_create_led_task() {
-    // Create a task
+    // Create task handle
     let task_handle: *mut *const core::ffi::c_void = core::ptr::null_mut();
-    
+
     unsafe {
         freertos_rs_task_create(
-            led_task,
-            b"LED_Task\0".as_ptr(),
-            128, // Stack size
-            core::ptr::null_mut(),
-            1, // Priority
-            task_handle
+            led_task,                    // Task function pointer
+            b"LED_Task\0".as_ptr(),     // Task name
+            128,                        // Stack size (in words)
+            core::ptr::null_mut(),      // Task parameters
+            1,                          // Task priority
+            task_handle                 // Task handle
         );
-        
-        // Start the scheduler
+
+        // Start FreeRTOS scheduler
         freertos_rs_task_start_scheduler();
     }
 }
 ```
 
-### 代码解析
+### Code Analysis
 
-1. **模块导入**
-   - 导入FreeRTOS任务相关的API包装函数
-   - 这些函数最终调用FreeRTOS的C API
+1. **Module Imports**
+   - Import FreeRTOS task-related API wrapper functions
+   - These functions ultimately call FreeRTOS C APIs
 
-2. **Panic处理器**
-   - `#[panic_handler]` 是no_std环境必需的
-   - 在嵌入式环境中panic时进入无限循环
+2. **Panic Handler**
+   - `#[panic_handler]` is required in no_std environment
+   - Enters infinite loop when panic occurs in embedded environment
 
-3. **任务函数**
-   - `led_task`: 标准的FreeRTOS任务函数
-   - 使用`extern "C"`确保C调用约定兼容
-   - 无限循环，每500ms执行一次
+3. **Task Function**
+   - `led_task`: Standard FreeRTOS task function
+   - Uses `extern "C"` to ensure C calling convention compatibility
+   - Infinite loop, executes every 500ms
 
-4. **导出函数**
-   - `#[no_mangle]` 防止函数名被编译器修改
-   - `pub extern "C"` 使函数可被C代码调用
-   - 创建任务并启动调度器
+4. **Export Function**
+   - `#[no_mangle]` prevents function name from being modified by compiler
+   - `pub extern "C"` makes function callable from C code
+   - Creates task and starts scheduler
 
-## 编译步骤
+## Build Steps
 
-### 1. 配置Cargo.toml
+### 1. Configure Cargo.toml
 
 ```toml
 [package]
@@ -111,11 +111,11 @@ opt-level = "s"
 lto = true
 ```
 
-### 2. 配置.cargo/config.toml
+### 2. Configure .cargo/config.toml
 
 ```toml
 [build]
-target = "thumbv7em-none-eabihf"
+target = "thumbv7em-none-eabihf"  # Adjust according to your MCU
 # target = "thumbv7m-none-eabi"
 
 [target.thumbv7em-none-eabihf]
@@ -124,58 +124,58 @@ rustflags = [
   "-O",
   "-C", "target-cpu=cortex-m7",
   "-C", "linker=rust-lld",
-] 
+]
 ```
 
-### 3. 编译命令
+### 3. Build Command
 
 ```bash
 cargo build --release
 ```
 
-### 4. 获取编译产物
+### 4. Get Build Artifacts
 
-编译完成后，在以下路径找到生成的文件：
+After compilation, find the generated files at the following path:
 
 ```
 target/thumbv7em-none-eabihf/release/
-├── libfreertos_api_rs.a                    # 静态库文件
-└── deps/freertos_api_rs-<hash>.o          # 对象文件
+├── libfreertos_api_rs.a                    # Static library file
+└── deps/freertos_api_rs-<hash>.o          # Object file
 ```
 
-## 在C工程中使用
+## Using in C Projects
 
-### 1. 复制文件
+### 1. Copy Files
 
-将以下文件复制到你的C工程：
-- `freertos_api_rs-<hash>.o` (对象文件)
-- `src/freertos-api-rust.c` (FreeRTOS API包装函数)
+Copy the following files to your C project:
+- `freertos_api_rs-<hash>.o` (object file)
+- `src/freertos-api-rust.c` (FreeRTOS API wrapper functions)
 
-### 2. 在C代码中声明和调用
+### 2. Declare and Call in C Code
 
 ```c
 // main.c
 #include "FreeRTOS.h"
 #include "task.h"
 
-// 声明Rust导出的函数
+// Declare Rust exported functions
 extern void rust_create_led_task(void);
 
 int main(void) {
-    // 硬件初始化
+    // Hardware initialization
     SystemInit();
 
-    // 调用Rust函数创建LED任务并启动调度器
+    // Call Rust function to create LED task and start scheduler
     rust_create_led_task();
 
-    // 调度器启动后不会执行到这里
+    // Won't execute here after scheduler starts
     while(1);
 }
 ```
 
-## 注意事项
+## Notes
 
-- 确保Rust编译目标与你的MCU架构匹配
-- 所有导出函数必须使用 `#[no_mangle]` 和 `extern "C"`
-- 在C工程中包含 `api.c` 文件提供FreeRTOS API包装
-- 确保FreeRTOS配置支持你使用的功能模块
+- Ensure Rust build target matches your MCU architecture
+- All exported functions must use `#[no_mangle]` and `extern "C"`
+- Include `api.c` file in C project to provide FreeRTOS API wrappers
+- Ensure FreeRTOS configuration supports the functional modules you use
