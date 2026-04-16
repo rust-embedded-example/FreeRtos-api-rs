@@ -1,6 +1,31 @@
+//! FreeRTOS software timer module.
+//!
+//! Provides FFI bindings and a safe `Timer` wrapper for FreeRTOS software timers.
+//! Timers are managed by the timer daemon task and execute their callback in
+//! that context (not in ISR context).
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use freertos_api_rs::timers::Timer;
+//!
+//! extern "C" fn my_timer_callback(handle: freertos_api_rs::base::FreeRtosTimerHandle) {
+//!     // Timer expired
+//! }
+//!
+//! let timer = Timer::new(
+//!     b"MyTimer\0".as_ptr(),
+//!     100,   // 100 ticks period
+//!     true,  // auto-reload
+//!     my_timer_callback,
+//! ).expect("timer create failed");
+//!
+//! timer.start(0);
+//! ```
+
 use crate::base::{
-    FreeRtosBaseType, FreeRtosTickType, FreeRtosTimerHandle,
-    FreeRtosTimerCallback, FreeRtosVoidPtr, FreeRtosUBaseType
+    FreeRtosBaseType, FreeRtosTickType, FreeRtosTimerHandle, FreeRtosTimerCallback,
+    FreeRtosVoidPtr, FreeRtosUBaseType, FreeRtosError, PD_PASS, PD_TRUE, PD_FALSE, PORT_MAX_DELAY,
 };
 
 //===========================================================================
@@ -8,32 +33,29 @@ use crate::base::{
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTimerCreate()
-    /// Creates a software timer
+    /// Creates a software timer with dynamic allocation.
     pub fn freertos_rs_timer_create(
         timer_name: *const u8,
         timer_period: FreeRtosTickType,
         auto_reload: FreeRtosBaseType,
         timer_id: FreeRtosVoidPtr,
-        callback_function: FreeRtosTimerCallback
+        callback_function: FreeRtosTimerCallback,
     ) -> FreeRtosTimerHandle;
-    
-    /// Wrapper for xTimerCreateStatic()
-    /// Creates a software timer using statically allocated memory
+
+    /// Creates a software timer with static allocation.
     pub fn freertos_rs_timer_create_static(
         timer_name: *const u8,
         timer_period: FreeRtosTickType,
         auto_reload: FreeRtosBaseType,
         timer_id: FreeRtosVoidPtr,
         callback_function: FreeRtosTimerCallback,
-        timer_buffer: FreeRtosVoidPtr
+        timer_buffer: FreeRtosVoidPtr,
     ) -> FreeRtosTimerHandle;
-    
-    /// Wrapper for xTimerDelete()
-    /// Deletes a software timer
+
+    /// Deletes a software timer.
     pub fn freertos_rs_timer_delete(
         timer: FreeRtosTimerHandle,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 }
 
@@ -42,33 +64,29 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTimerStart()
-    /// Starts a software timer
+    /// Starts a software timer.
     pub fn freertos_rs_timer_start(
         timer: FreeRtosTimerHandle,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerStop()
-    /// Stops a software timer
+
+    /// Stops a software timer.
     pub fn freertos_rs_timer_stop(
         timer: FreeRtosTimerHandle,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerReset()
-    /// Resets a software timer
+
+    /// Resets a software timer (restarts the period).
     pub fn freertos_rs_timer_reset(
         timer: FreeRtosTimerHandle,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerChangePeriod()
-    /// Changes the period of a software timer
+
+    /// Changes the period of a software timer.
     pub fn freertos_rs_timer_change_period(
         timer: FreeRtosTimerHandle,
         new_period: FreeRtosTickType,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 }
 
@@ -77,33 +95,29 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTimerStartFromISR()
-    /// Starts a software timer from an ISR
+    /// Starts a software timer from an ISR.
     pub fn freertos_rs_timer_start_from_isr(
         timer: FreeRtosTimerHandle,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerStopFromISR()
-    /// Stops a software timer from an ISR
+
+    /// Stops a software timer from an ISR.
     pub fn freertos_rs_timer_stop_from_isr(
         timer: FreeRtosTimerHandle,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerResetFromISR()
-    /// Resets a software timer from an ISR
+
+    /// Resets a software timer from an ISR.
     pub fn freertos_rs_timer_reset_from_isr(
         timer: FreeRtosTimerHandle,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerChangePeriodFromISR()
-    /// Changes the period of a software timer from an ISR
+
+    /// Changes a timer's period from an ISR.
     pub fn freertos_rs_timer_change_period_from_isr(
         timer: FreeRtosTimerHandle,
         new_period: FreeRtosTickType,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 }
 
@@ -112,82 +126,239 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTimerIsTimerActive()
-    /// Checks if a timer is active
-    pub fn freertos_rs_timer_is_timer_active(
-        timer: FreeRtosTimerHandle
-    ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTimerGetTimerDaemonTaskHandle()
-    /// Gets the handle of the timer daemon task
+    /// Checks if a timer is currently active.
+    pub fn freertos_rs_timer_is_timer_active(timer: FreeRtosTimerHandle) -> FreeRtosBaseType;
+
+    /// Gets the handle of the timer daemon task.
     pub fn freertos_rs_timer_get_timer_daemon_task_handle() -> FreeRtosVoidPtr;
-    
-    /// Wrapper for xTimerGetPeriod()
-    /// Gets the period of a timer
-    pub fn freertos_rs_timer_get_period(
-        timer: FreeRtosTimerHandle
-    ) -> FreeRtosTickType;
-    
-    /// Wrapper for xTimerGetExpiryTime()
-    /// Gets the expiry time of a timer
-    pub fn freertos_rs_timer_get_expiry_time(
-        timer: FreeRtosTimerHandle
-    ) -> FreeRtosTickType;
-    
-    /// Wrapper for pvTimerGetTimerID()
-    /// Gets the ID of a timer
-    pub fn freertos_rs_timer_get_timer_id(
-        timer: FreeRtosTimerHandle
-    ) -> FreeRtosVoidPtr;
-    
-    /// Wrapper for vTimerSetTimerID()
-    /// Sets the ID of a timer
-    pub fn freertos_rs_timer_set_timer_id(
-        timer: FreeRtosTimerHandle,
-        new_id: FreeRtosVoidPtr
-    );
 
-    /// Wrapper for pcTimerGetName()
-    /// Gets the name of a timer
-    pub fn freertos_rs_timer_get_name(
-        timer: FreeRtosTimerHandle
-    ) -> *const u8;
+    /// Gets the period of a timer in ticks.
+    pub fn freertos_rs_timer_get_period(timer: FreeRtosTimerHandle) -> FreeRtosTickType;
 
-    /// Wrapper for xTimerGetStaticBuffer()
-    /// Gets the static buffer associated with a timer
+    /// Gets the expiry time of a timer.
+    pub fn freertos_rs_timer_get_expiry_time(timer: FreeRtosTimerHandle) -> FreeRtosTickType;
+
+    /// Gets the timer ID (user data).
+    pub fn freertos_rs_timer_get_timer_id(timer: FreeRtosTimerHandle) -> FreeRtosVoidPtr;
+
+    /// Sets the timer ID (user data).
+    pub fn freertos_rs_timer_set_timer_id(timer: FreeRtosTimerHandle, new_id: FreeRtosVoidPtr);
+
+    /// Gets the name of a timer.
+    pub fn freertos_rs_timer_get_name(timer: FreeRtosTimerHandle) -> *const u8;
+
+    /// Gets the static buffer associated with a timer.
     pub fn freertos_rs_timer_get_static_buffer(
         timer: FreeRtosTimerHandle,
-        timer_buffer: *mut FreeRtosVoidPtr
+        timer_buffer: *mut FreeRtosVoidPtr,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for uxTimerGetTimerNumber()
-    /// Gets the timer number for tracing
-    pub fn freertos_rs_timer_get_timer_number(
-        timer: FreeRtosTimerHandle
-    ) -> FreeRtosUBaseType;
+    /// Gets the timer number for tracing.
+    pub fn freertos_rs_timer_get_timer_number(timer: FreeRtosTimerHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for vTimerSetTimerNumber()
-    /// Sets the timer number for tracing
+    /// Sets the timer number for tracing.
     pub fn freertos_rs_timer_set_timer_number(
         timer: FreeRtosTimerHandle,
-        timer_number: FreeRtosUBaseType
+        timer_number: FreeRtosUBaseType,
     );
 
-    /// Wrapper for xTimerPendFunctionCall()
-    /// Pends a function call to be executed by the timer daemon task
+    /// Sets the reload mode of a timer.
+    pub fn freertos_rs_timer_set_reload_mode(
+        timer: FreeRtosTimerHandle,
+        auto_reload: FreeRtosBaseType,
+    );
+
+    /// Gets the reload mode as `BaseType_t`.
+    pub fn freertos_rs_timer_get_reload_mode(timer: FreeRtosTimerHandle) -> FreeRtosBaseType;
+
+    /// Gets the reload mode as `UBaseType_t`.
+    pub fn freertos_rs_ux_timer_get_reload_mode(timer: FreeRtosTimerHandle) -> FreeRtosUBaseType;
+
+    /// Creates the timer daemon task (internal).
+    pub fn freertos_rs_timer_create_timer_task() -> FreeRtosBaseType;
+
+    /// Resets the timer state (internal).
+    pub fn freertos_rs_timer_reset_state();
+
+    /// Pends a function call to the timer daemon task.
     pub fn freertos_rs_timer_pend_function_call(
         function_to_pend: FreeRtosVoidPtr,
         parameter1: FreeRtosVoidPtr,
         parameter2: u32,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTimerPendFunctionCallFromISR()
-    /// Pends a function call from an ISR to be executed by the timer daemon task
+    /// Pends a function call from an ISR.
     pub fn freertos_rs_timer_pend_function_call_from_isr(
         function_to_pend: FreeRtosVoidPtr,
         parameter1: FreeRtosVoidPtr,
         parameter2: u32,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
+}
+
+//===========================================================================
+// SAFE WRAPPER - TIMER
+//===========================================================================
+
+/// A FreeRTOS software timer with RAII cleanup.
+///
+/// The timer is deleted when dropped. The callback is executed in the
+/// timer daemon task context (not ISR).
+pub struct Timer {
+    handle: FreeRtosTimerHandle,
+}
+
+impl Timer {
+    /// Creates a new software timer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` — Null-terminated C string for the timer name
+    /// * `period_ticks` — Timer period in ticks
+    /// * `auto_reload` — `true` for auto-reload (periodic), `false` for one-shot
+    /// * `callback` — Function called when the timer expires
+    pub fn new(
+        name: *const u8,
+        period_ticks: FreeRtosTickType,
+        auto_reload: bool,
+        callback: FreeRtosTimerCallback,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_timer_create(
+                name,
+                period_ticks,
+                if auto_reload { PD_TRUE } else { PD_FALSE },
+                core::ptr::null_mut(),
+                callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Starts the timer.
+    pub fn start(&self, ticks_to_wait: FreeRtosTickType) -> bool {
+        unsafe { freertos_rs_timer_start(self.handle, ticks_to_wait) == PD_PASS }
+    }
+
+    /// Stops the timer.
+    pub fn stop(&self, ticks_to_wait: FreeRtosTickType) -> bool {
+        unsafe { freertos_rs_timer_stop(self.handle, ticks_to_wait) == PD_PASS }
+    }
+
+    /// Resets the timer (restarts its period).
+    pub fn reset(&self, ticks_to_wait: FreeRtosTickType) -> bool {
+        unsafe { freertos_rs_timer_reset(self.handle, ticks_to_wait) == PD_PASS }
+    }
+
+    /// Changes the timer period.
+    pub fn change_period(
+        &self,
+        new_period: FreeRtosTickType,
+        ticks_to_wait: FreeRtosTickType,
+    ) -> bool {
+        unsafe { freertos_rs_timer_change_period(self.handle, new_period, ticks_to_wait) == PD_PASS }
+    }
+
+    /// Returns `true` if the timer is currently active.
+    pub fn is_active(&self) -> bool {
+        unsafe { freertos_rs_timer_is_timer_active(self.handle) == PD_TRUE }
+    }
+
+    /// Returns the timer period in ticks.
+    pub fn get_period(&self) -> FreeRtosTickType {
+        unsafe { freertos_rs_timer_get_period(self.handle) }
+    }
+
+    /// Returns the timer expiry time.
+    pub fn get_expiry_time(&self) -> FreeRtosTickType {
+        unsafe { freertos_rs_timer_get_expiry_time(self.handle) }
+    }
+
+    /// Returns the timer name.
+    pub fn get_name(&self) -> *const u8 {
+        unsafe { freertos_rs_timer_get_name(self.handle) }
+    }
+
+    /// Sets the reload mode.
+    pub fn set_reload_mode(&self, auto_reload: bool) {
+        unsafe {
+            freertos_rs_timer_set_reload_mode(
+                self.handle,
+                if auto_reload { PD_TRUE } else { PD_FALSE },
+            )
+        }
+    }
+
+    /// Gets the reload mode.
+    pub fn get_reload_mode(&self) -> bool {
+        unsafe { freertos_rs_timer_get_reload_mode(self.handle) == PD_TRUE }
+    }
+
+    /// Starts the timer from an ISR.
+    pub fn start_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_timer_start_from_isr(self.handle, higher_priority_task_woken) == PD_PASS }
+    }
+
+    /// Stops the timer from an ISR.
+    pub fn stop_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_timer_stop_from_isr(self.handle, higher_priority_task_woken) == PD_PASS }
+    }
+
+    /// Resets the timer from an ISR.
+    pub fn reset_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_timer_reset_from_isr(self.handle, higher_priority_task_woken) == PD_PASS }
+    }
+
+    /// Changes the timer period from an ISR.
+    pub fn change_period_from_isr(
+        &self,
+        new_period: FreeRtosTickType,
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> bool {
+        unsafe {
+            freertos_rs_timer_change_period_from_isr(
+                self.handle,
+                new_period,
+                higher_priority_task_woken,
+            ) == PD_PASS
+        }
+    }
+
+    /// Gets the timer ID (user-defined data pointer).
+    pub fn get_timer_id(&self) -> FreeRtosVoidPtr {
+        unsafe { freertos_rs_timer_get_timer_id(self.handle) }
+    }
+
+    /// Sets the timer ID (user-defined data pointer).
+    pub fn set_timer_id(&self, new_id: FreeRtosVoidPtr) {
+        unsafe { freertos_rs_timer_set_timer_id(self.handle, new_id) };
+    }
+}
+
+impl Drop for Timer {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_timer_delete(self.handle, PORT_MAX_DELAY) };
+    }
+}
+
+unsafe impl Send for Timer {}
+
+//===========================================================================
+// UNIT TESTS
+//===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_timer_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Timer>();
+    }
 }

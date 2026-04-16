@@ -1,181 +1,121 @@
-# FreeRTOS Rust Middleware Example
+# freertos-api-rs
 
-This is an example project for creating FreeRTOS C project middleware using Rust. Through this project, you can write Rust code, compile it to object files (.o), and then call it from C language FreeRTOS projects.
+Rust FFI bindings and safe wrappers for the [FreeRTOS](https://www.freertos.org/) real-time operating system kernel.
 
-## Project Structure
+## Overview
+
+This crate provides a complete three-layer architecture for calling FreeRTOS APIs from Rust:
 
 ```
-freertos-api-rs/
-├── src/
-│   ├── lib.rs          # Main example code
-│   ├── api.c           # FreeRTOS API C wrapper functions
-│   ├── base.rs         # Basic type definitions
-│   ├── task.rs         # Task management API
-│   ├── queue.rs        # Queue management API
-│   ├── semphr.rs       # Semaphore API
-│   ├── timers.rs       # Timer API
-│   └── ...             # Other modules
-├── Cargo.toml
-└── README.md
+┌─────────────────────────────────────┐
+│        Your Rust Application        │
+├─────────────────────────────────────┤
+│  Safe Rust Wrappers (RAII types)    │  ← Queue<T>, Mutex, Timer, EventGroup, ...
+├─────────────────────────────────────┤
+│  Rust FFI Declarations              │  ← unsafe extern "C" { ... }
+├─────────────────────────────────────┤
+│  C Wrapper Layer (freertos-api-rust.c)│  ← freertos_rs_*() functions
+├─────────────────────────────────────┤
+│  FreeRTOS C Kernel                  │  ← xTaskCreate(), xQueueSend(), ...
+└─────────────────────────────────────┘
 ```
 
-## Example Code Explanation
+## Features
 
-### Complete lib.rs Example
+- **Complete API coverage** — All FreeRTOS public APIs wrapped (tasks, queues, semaphores, mutexes, timers, event groups, stream/message buffers, atomic operations, lists, co-routines)
+- **Safe RAII wrappers** — `Queue<T>`, `BinarySemaphore`, `CountingSemaphore`, `Mutex`, `RecursiveMutex`, `Timer`, `EventGroup`, `StreamBuffer`, `MessageBuffer`, `CriticalSection`
+- **`no_std` compatible** — Designed for bare-metal embedded targets
+- **`GlobalAlloc` support** — `FreeRtosAllocator` implements Rust's global allocator trait on top of `pvPortMalloc`/`vPortFree`
+- **Comprehensive documentation** — Full rustdoc for all public APIs
 
-```rust
-pub use base::*;
+## Module Map
 
-use task::{freertos_rs_task_delay,
-    freertos_rs_task_create,
-    freertos_rs_task_start_scheduler};
+| Module           | FreeRTOS Header         | Safe Wrapper Types                                    |
+|------------------|-------------------------|-------------------------------------------------------|
+| `base`           | —                       | Core types, enums, constants                          |
+| `task`           | `task.h`                | `CriticalSection`, `CriticalSectionFromIsr`           |
+| `queue`          | `queue.h`               | `Queue<T>`                                            |
+| `semphr`         | `semphr.h`              | `BinarySemaphore`, `CountingSemaphore`, `Mutex`, `RecursiveMutex` |
+| `timers`         | `timers.h`              | `Timer`                                               |
+| `event_groups`   | `event_groups.h`        | `EventGroup`                                          |
+| `stream_buffer`  | `stream_buffer.h`       | `StreamBuffer`                                        |
+| `message_buffer` | `message_buffer.h`      | `MessageBuffer`                                       |
+| `portable`       | `portable.h`            | `FreeRtosAllocator` (implements `GlobalAlloc`)        |
+| `projdefs`       | `projdefs.h`            | Constants (`pdTRUE`, `pdPASS`, `PORT_MAX_DELAY`, etc.)|
+| `atomic`         | `atomic.h`              | Atomic operation FFI bindings                         |
+| `list`           | `list.h`                | Linked list FFI bindings                              |
+| `croutine`       | `croutine.h` (deprecated)| Co-routine FFI bindings                              |
 
-use core::panic::PanicInfo;
+## Quick Start
 
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
-}
-
-/// LED task function - executes every 500ms
-extern "C" fn led_task(_params: *mut core::ffi::c_void) {
-    loop {
-        // Toggle LED - add your LED control logic here
-        unsafe {
-            freertos_rs_task_delay(500); // 500ms delay
-        }
-    }
-}
-
-/// Function exported for C language calls - creates LED task and starts scheduler
-#[no_mangle]
-pub extern "C" fn rust_create_led_task() {
-    // Create task handle
-    let task_handle: *mut *const core::ffi::c_void = core::ptr::null_mut();
-
-    unsafe {
-        freertos_rs_task_create(
-            led_task,                    // Task function pointer
-            b"LED_Task\0".as_ptr(),     // Task name
-            128,                        // Stack size (in words)
-            core::ptr::null_mut(),      // Task parameters
-            1,                          // Task priority
-            task_handle                 // Task handle
-        );
-
-        // Start FreeRTOS scheduler
-        freertos_rs_task_start_scheduler();
-    }
-}
-```
-
-### Code Analysis
-
-1. **Module Imports**
-   - Import FreeRTOS task-related API wrapper functions
-   - These functions ultimately call FreeRTOS C APIs
-
-2. **Panic Handler**
-   - `#[panic_handler]` is required in no_std environment
-   - Enters infinite loop when panic occurs in embedded environment
-
-3. **Task Function**
-   - `led_task`: Standard FreeRTOS task function
-   - Uses `extern "C"` to ensure C calling convention compatibility
-   - Infinite loop, executes every 500ms
-
-4. **Export Function**
-   - `#[no_mangle]` prevents function name from being modified by compiler
-   - `pub extern "C"` makes function callable from C code
-   - Creates task and starts scheduler
-
-## Build Steps
-
-### 1. Configure Cargo.toml
-
-```toml
-[package]
-name = "freertos-api-rs"
-version = "0.1.0"
-edition = "2024"
-
-[lib]
-crate-type = ["staticlib"]
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
-opt-level = "s"
-lto = true
-```
-
-### 2. Configure .cargo/config.toml
-
-```toml
-[build]
-target = "thumbv7em-none-eabihf"  # Adjust according to your MCU
-# target = "thumbv7m-none-eabi"
-
-[target.thumbv7em-none-eabihf]
-rustflags = [
-  "--emit=obj",
-  "-O",
-  "-C", "target-cpu=cortex-m7",
-  "-C", "linker=rust-lld",
-]
-```
-
-### 3. Build Command
+### 1. Build the Rust Crate
 
 ```bash
-cargo build --release
+cargo build --release --target thumbv7em-none-eabihf
 ```
 
-### 4. Get Build Artifacts
+### 2. Copy Build Artifacts
 
-After compilation, find the generated files at the following path:
+Copy these files to your C FreeRTOS project:
+- `target/thumbv7em-none-eabihf/release/deps/freertos_api_rs-*.o`
+- `src/freertos-api-rust.c`
 
-```
-target/thumbv7em-none-eabihf/release/
-├── libfreertos_api_rs.a                    # Static library file
-└── deps/freertos_api_rs-<hash>.o          # Object file
-```
-
-## Using in C Projects
-
-### 1. Copy Files
-
-Copy the following files to your C project:
-- `freertos_api_rs-<hash>.o` (object file)
-- `src/freertos-api-rust.c` (FreeRTOS API wrapper functions)
-
-### 2. Declare and Call in C Code
+### 3. Use in Your C Project
 
 ```c
-// main.c
 #include "FreeRTOS.h"
 #include "task.h"
 
-// Declare Rust exported functions
-extern void rust_create_led_task(void);
+// The C wrapper file provides freertos_rs_*() functions
+// Your Rust code provides additional exported functions
 
 int main(void) {
-    // Hardware initialization
-    SystemInit();
-
-    // Call Rust function to create LED task and start scheduler
-    rust_create_led_task();
-
-    // Won't execute here after scheduler starts
+    // Initialize hardware, create tasks using FreeRTOS or Rust wrappers
+    vTaskStartScheduler();
     while(1);
 }
 ```
 
-## Notes
+### 4. Use Safe Wrappers in Rust
 
-- Ensure Rust build target matches your MCU architecture
-- All exported functions must use `#[no_mangle]` and `extern "C"`
-- Include `api.c` file in C project to provide FreeRTOS API wrappers
-- Ensure FreeRTOS configuration supports the functional modules you use
+```rust
+use freertos_api_rs::queue::Queue;
+use freertos_api_rs::semphr::Mutex;
+use freertos_api_rs::task::CriticalSection;
+
+// Type-safe queue
+let queue: Queue<u32> = Queue::new(10).unwrap();
+queue.send(&42, 100).unwrap();
+
+// Mutex with RAII
+let mut mutex = Mutex::new().unwrap();
+if mutex.lock(100) {
+    // Critical section
+    mutex.unlock();
+}
+
+// RAII critical section
+{
+    let _cs = CriticalSection::enter();
+    // Interrupts disabled here
+} // Interrupts re-enabled on drop
+```
+
+## Configuration
+
+This crate mirrors FreeRTOS configuration through conditional compilation in the C wrapper layer:
+
+| FreeRTOS Config                     | Enables                       |
+|-------------------------------------|-------------------------------|
+| `configSUPPORT_STATIC_ALLOCATION`   | Static allocation variants    |
+| `configSUPPORT_DYNAMIC_ALLOCATION`  | Dynamic allocation variants   |
+| `configUSE_MUTEXES`                 | Mutex APIs                    |
+| `configUSE_RECURSIVE_MUTEXES`       | Recursive mutex APIs          |
+| `configUSE_COUNTING_SEMAPHORES`     | Counting semaphore APIs       |
+| `configUSE_TIMERS`                  | Software timer APIs           |
+| `configUSE_QUEUE_SETS`              | Queue set APIs                |
+| `configUSE_TRACE_FACILITY`          | Debug/tracing APIs            |
+
+## License
+
+MIT

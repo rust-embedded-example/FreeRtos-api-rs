@@ -1,123 +1,93 @@
-use crate::base::{
-    FreeRtosBaseType, FreeRtosUBaseType, FreeRtosTickType, FreeRtosVoidPtr
-};
+//! FreeRTOS linked list module.
+//!
+//! Provides FFI bindings for FreeRTOS linked list operations. These are
+//! primarily internal FreeRTOS kernel data structures, but are exposed for
+//! advanced use cases like custom scheduling algorithms or debugging tools.
+
+use crate::base::{FreeRtosBaseType, FreeRtosTickType, FreeRtosUBaseType, FreeRtosVoidPtr};
 
 //===========================================================================
 // TYPE DEFINITIONS
 //===========================================================================
 
-/// FreeRTOS List_t handle
+/// Opaque handle to a FreeRTOS `List_t`.
 pub type FreeRtosListHandle = *mut core::ffi::c_void;
 
-/// FreeRTOS ListItem_t handle  
+/// Opaque handle to a FreeRTOS `ListItem_t`.
 pub type FreeRtosListItemHandle = *mut core::ffi::c_void;
-
-/// FreeRTOS MiniListItem_t handle
-pub type FreeRtosMiniListItemHandle = *mut core::ffi::c_void;
 
 //===========================================================================
 // EXTERNAL C FUNCTION DECLARATIONS - LIST OPERATIONS
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for vListInitialise()
-    /// Initializes a list
+    /// Initializes a list structure.
     pub fn freertos_rs_list_initialise(list: FreeRtosListHandle);
 
-    /// Wrapper for vListInitialiseItem()
-    /// Initializes a list item
+    /// Initializes a list item.
     pub fn freertos_rs_list_initialise_item(item: FreeRtosListItemHandle);
 
-    /// Wrapper for vListInsert()
-    /// Inserts a list item into a list in priority order
-    pub fn freertos_rs_list_insert(
-        list: FreeRtosListHandle,
-        new_list_item: FreeRtosListItemHandle
-    );
+    /// Inserts a list item in sorted order (by item value).
+    pub fn freertos_rs_list_insert(list: FreeRtosListHandle, new_list_item: FreeRtosListItemHandle);
 
-    /// Wrapper for vListInsertEnd()
-    /// Inserts a list item at the end of a list
-    pub fn freertos_rs_list_insert_end(
-        list: FreeRtosListHandle,
-        new_list_item: FreeRtosListItemHandle
-    );
+    /// Inserts a list item at the end of the list.
+    pub fn freertos_rs_list_insert_end(list: FreeRtosListHandle, new_list_item: FreeRtosListItemHandle);
 
-    /// Wrapper for uxListRemove()
-    /// Removes a list item from a list
-    pub fn freertos_rs_list_remove(
-        item_to_remove: FreeRtosListItemHandle
-    ) -> FreeRtosUBaseType;
+    /// Removes a list item. Returns the new list length.
+    pub fn freertos_rs_list_remove(item_to_remove: FreeRtosListItemHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for listGET_OWNER_OF_NEXT_ENTRY()
-    /// Gets the owner of the next entry in a list
+    /// Gets the owner of the next entry (cycles through the list).
     pub fn freertos_rs_list_get_owner_of_next_entry(
         list: FreeRtosListHandle,
-        list_item: FreeRtosListItemHandle
+        list_item: FreeRtosListItemHandle,
     ) -> FreeRtosVoidPtr;
 
-    /// Wrapper for listGET_OWNER_OF_HEAD_ENTRY()
-    /// Gets the owner of the head entry in a list
-    pub fn freertos_rs_list_get_owner_of_head_entry(
-        list: FreeRtosListHandle
-    ) -> FreeRtosVoidPtr;
+    /// Gets the owner of the head entry.
+    pub fn freertos_rs_list_get_owner_of_head_entry(list: FreeRtosListHandle) -> FreeRtosVoidPtr;
 
-    /// Wrapper for listIS_EMPTY()
-    /// Checks if a list is empty
+    /// Checks if a list is empty.
     pub fn freertos_rs_list_is_empty(list: FreeRtosListHandle) -> FreeRtosBaseType;
 
-    /// Wrapper for listCURRENT_LIST_LENGTH()
-    /// Gets the current length of a list
-    pub fn freertos_rs_list_current_list_length(
-        list: FreeRtosListHandle
-    ) -> FreeRtosUBaseType;
+    /// Gets the current list length.
+    pub fn freertos_rs_list_current_list_length(list: FreeRtosListHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for listGET_ITEM_VALUE_OF_HEAD_ENTRY()
-    /// Gets the item value of the head entry
-    pub fn freertos_rs_list_get_item_value_of_head_entry(
-        list: FreeRtosListHandle
-    ) -> FreeRtosTickType;
+    /// Gets the item value of the head entry.
+    pub fn freertos_rs_list_get_item_value_of_head_entry(list: FreeRtosListHandle) -> FreeRtosTickType;
 
-    /// Wrapper for listSET_LIST_ITEM_OWNER()
-    /// Sets the owner of a list item
-    pub fn freertos_rs_list_set_list_item_owner(
-        list_item: FreeRtosListItemHandle,
-        owner: FreeRtosVoidPtr
-    );
+    /// Sets the owner of a list item.
+    pub fn freertos_rs_list_set_list_item_owner(list_item: FreeRtosListItemHandle, owner: FreeRtosVoidPtr);
 
-    /// Wrapper for listGET_LIST_ITEM_OWNER()
-    /// Gets the owner of a list item
-    pub fn freertos_rs_list_get_list_item_owner(
-        list_item: FreeRtosListItemHandle
-    ) -> FreeRtosVoidPtr;
+    /// Gets the owner of a list item.
+    pub fn freertos_rs_list_get_list_item_owner(list_item: FreeRtosListItemHandle) -> FreeRtosVoidPtr;
 
-    /// Wrapper for listSET_LIST_ITEM_VALUE()
-    /// Sets the value of a list item
-    pub fn freertos_rs_list_set_list_item_value(
-        list_item: FreeRtosListItemHandle,
-        value: FreeRtosTickType
-    );
+    /// Sets the value of a list item.
+    pub fn freertos_rs_list_set_list_item_value(list_item: FreeRtosListItemHandle, value: FreeRtosTickType);
 
-    /// Wrapper for listGET_LIST_ITEM_VALUE()
-    /// Gets the value of a list item
-    pub fn freertos_rs_list_get_list_item_value(
-        list_item: FreeRtosListItemHandle
-    ) -> FreeRtosTickType;
+    /// Gets the value of a list item.
+    pub fn freertos_rs_list_get_list_item_value(list_item: FreeRtosListItemHandle) -> FreeRtosTickType;
 
-    /// Wrapper for listGET_HEAD_ENTRY()
-    /// Gets the head entry of a list
-    pub fn freertos_rs_list_get_head_entry(
-        list: FreeRtosListHandle
-    ) -> FreeRtosListItemHandle;
+    /// Gets the head entry of a list.
+    pub fn freertos_rs_list_get_head_entry(list: FreeRtosListHandle) -> FreeRtosListItemHandle;
 
-    /// Wrapper for listGET_NEXT()
-    /// Gets the next item in a list
-    pub fn freertos_rs_list_get_next(
-        list_item: FreeRtosListItemHandle
-    ) -> FreeRtosListItemHandle;
+    /// Gets the next item in a list.
+    pub fn freertos_rs_list_get_next(list_item: FreeRtosListItemHandle) -> FreeRtosListItemHandle;
 
-    /// Wrapper for listLIST_ITEM_CONTAINER()
-    /// Gets the container list of a list item
-    pub fn freertos_rs_list_list_item_container(
-        list_item: FreeRtosListItemHandle
-    ) -> FreeRtosListHandle;
+    /// Gets the container list of a list item.
+    pub fn freertos_rs_list_list_item_container(list_item: FreeRtosListItemHandle) -> FreeRtosListHandle;
+}
+
+//===========================================================================
+// UNIT TESTS
+//===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_handle_types_are_pointers() {
+        use core::mem::size_of;
+        assert_eq!(size_of::<FreeRtosListHandle>(), size_of::<*mut core::ffi::c_void>());
+        assert_eq!(size_of::<FreeRtosListItemHandle>(), size_of::<*mut core::ffi::c_void>());
+    }
 }

@@ -1,7 +1,36 @@
+//! FreeRTOS task management module.
+//!
+//! This module provides Rust FFI bindings and safe wrappers for FreeRTOS task
+//! management APIs defined in `task.h`. Tasks are the fundamental unit of
+//! execution in FreeRTOS — each task has its own stack, priority, and state.
+//!
+//! # Core Concepts
+//!
+//! - **Task Creation**: Use the raw FFI functions for task creation.
+//!   the raw FFI functions directly.
+//! - **Scheduler Control**: Start/stop the scheduler, suspend/resume all tasks.
+//! - **Task Notifications**: Lightweight, fast alternative to queues for task
+//!   signaling (available since FreeRTOS 8.2.0).
+//! - **Critical Sections**: Use [`CriticalSection`] for RAII-managed interrupt
+//!   masking.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use freertos_api_rs::task::{Task, CriticalSection};
+//!
+//! extern "C" fn blink_task(_param: *mut core::ffi::c_void) {
+//!     loop {
+//!         // Toggle LED
+//!         unsafe { freertos_api_rs::task::freertos_rs_task_delay(500); }
+//!     }
+//! }
+//! ```
+
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTaskHandle, FreeRtosUBaseType,
-    FreeRtosTaskFunction, FreeRtosConfigStackDepthType, FreeRtosStackType, FreeRtosStaticTask,
-    FreeRtosVoidPtr, FreeRtosTimeOut
+    FreeRtosTaskFunction, FreeRtosConfigStackDepthType, FreeRtosStackType,
+    FreeRtosStaticTask, FreeRtosVoidPtr, FreeRtosTimeOut, FreeRtosConstVoidPtr,
 };
 
 //===========================================================================
@@ -9,19 +38,21 @@ use crate::base::{
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTaskCreate()
-    /// Creates a new task and adds it to the list of tasks that are ready to run
+    /// Creates a new task with dynamically allocated memory.
+    ///
+    /// Wraps `xTaskCreate()`. Returns `pdPASS` on success or `errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY`.
     pub fn freertos_rs_task_create(
         task_code: FreeRtosTaskFunction,
         name: *const u8,
         stack_depth: FreeRtosConfigStackDepthType,
         parameters: FreeRtosVoidPtr,
         priority: FreeRtosUBaseType,
-        created_task: *mut FreeRtosTaskHandle
+        created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTaskCreateStatic()
-    /// Creates a new task using statically allocated memory
+
+    /// Creates a new task with statically allocated memory.
+    ///
+    /// Wraps `xTaskCreateStatic()`. Returns the task handle, or `NULL` if buffers are invalid.
     pub fn freertos_rs_task_create_static(
         task_code: FreeRtosTaskFunction,
         name: *const u8,
@@ -29,33 +60,42 @@ unsafe extern "C" {
         parameters: FreeRtosVoidPtr,
         priority: FreeRtosUBaseType,
         stack_buffer: FreeRtosStackType,
-        task_buffer: FreeRtosStaticTask
+        task_buffer: FreeRtosStaticTask,
     ) -> FreeRtosTaskHandle;
-    
-    /// Wrapper for xTaskCreateRestricted()
-    /// Creates a new restricted task for MPU systems
+
+    /// Creates a new MPU-restricted task.
+    ///
+    /// Wraps `xTaskCreateRestricted()`. Only available when `portUSING_MPU_WRAPPERS == 1`.
     pub fn freertos_rs_task_create_restricted(
         task_definition: *const FreeRtosVoidPtr,
-        created_task: *mut FreeRtosTaskHandle
+        created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskCreateRestrictedStatic()
-    /// Creates a new restricted task using static allocation
+    /// Creates a new MPU-restricted task with static allocation.
     pub fn freertos_rs_task_create_restricted_static(
         task_definition: *const FreeRtosVoidPtr,
-        created_task: *mut FreeRtosTaskHandle
+        created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskCreateRestrictedStaticAffinitySet()
-    /// Creates a new restricted task with affinity using static allocation
+    /// Creates a new MPU-restricted task with static allocation and core affinity.
     pub fn freertos_rs_task_create_restricted_static_affinity_set(
         task_definition: *const FreeRtosVoidPtr,
         core_affinity_mask: FreeRtosUBaseType,
-        created_task: *mut FreeRtosTaskHandle
+        created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskCreateAffinitySet()
-    /// Creates a new task with core affinity (multi-core systems)
+    /// Creates a new MPU-restricted task with core affinity (dynamic allocation).
+    ///
+    /// Wraps `xTaskCreateRestrictedAffinitySet()`.
+    pub fn freertos_rs_task_create_restricted_affinity_set(
+        task_definition: *const FreeRtosVoidPtr,
+        core_affinity_mask: FreeRtosUBaseType,
+        created_task: *mut FreeRtosTaskHandle,
+    ) -> FreeRtosBaseType;
+
+    /// Creates a new task with core affinity (SMP systems).
+    ///
+    /// Wraps `xTaskCreateAffinitySet()`.
     pub fn freertos_rs_task_create_affinity_set(
         task_code: FreeRtosTaskFunction,
         name: *const u8,
@@ -63,11 +103,12 @@ unsafe extern "C" {
         parameters: FreeRtosVoidPtr,
         priority: FreeRtosUBaseType,
         core_affinity_mask: FreeRtosUBaseType,
-        created_task: *mut FreeRtosTaskHandle
+        created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskCreateStaticAffinitySet()
-    /// Creates a new task with core affinity using static allocation
+    /// Creates a new task with static allocation and core affinity.
+    ///
+    /// Wraps `xTaskCreateStaticAffinitySet()`.
     pub fn freertos_rs_task_create_static_affinity_set(
         task_code: FreeRtosTaskFunction,
         name: *const u8,
@@ -76,18 +117,20 @@ unsafe extern "C" {
         priority: FreeRtosUBaseType,
         stack_buffer: FreeRtosStackType,
         task_buffer: FreeRtosStaticTask,
-        core_affinity_mask: FreeRtosUBaseType
+        core_affinity_mask: FreeRtosUBaseType,
     ) -> FreeRtosTaskHandle;
 
-    /// Wrapper for vTaskCoreAffinitySet()
-    /// Sets the core affinity of a task
+    /// Sets the core affinity mask for a task (SMP systems).
+    ///
+    /// Wraps `vTaskCoreAffinitySet()`.
     pub fn freertos_rs_task_core_affinity_set(
         task: FreeRtosTaskHandle,
-        core_affinity_mask: FreeRtosUBaseType
+        core_affinity_mask: FreeRtosUBaseType,
     );
 
-    /// Wrapper for uxTaskCoreAffinityGet()
-    /// Gets the core affinity of a task
+    /// Gets the core affinity mask for a task (SMP systems).
+    ///
+    /// Wraps `uxTaskCoreAffinityGet()`.
     pub fn freertos_rs_task_core_affinity_get(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 }
 
@@ -96,24 +139,33 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for vTaskStartScheduler()
-    /// Starts the FreeRTOS scheduler
+    /// Starts the FreeRTOS scheduler.
+    ///
+    /// This function does not return unless a task calls `vTaskEndScheduler()`.
+    /// At least one task must have been created before calling this.
     pub fn freertos_rs_task_start_scheduler();
-    
-    /// Wrapper for vTaskEndScheduler()
-    /// Ends the FreeRTOS scheduler
+
+    /// Stops the FreeRTOS scheduler.
+    ///
+    /// Only available on x86-like architectures. Most embedded ports do not
+    /// implement this.
     pub fn freertos_rs_task_end_scheduler();
-    
-    /// Wrapper for vTaskSuspendAll()
-    /// Suspends the scheduler without disabling interrupts
+
+    /// Suspends the scheduler without disabling interrupts.
+    ///
+    /// Critical for implementing atomic multi-step operations. Must be paired
+    /// with a call to [`freertos_rs_task_resume_all`].
     pub fn freertos_rs_task_suspend_all();
-    
-    /// Wrapper for xTaskResumeAll()
-    /// Resumes the scheduler after suspension
+
+    /// Resumes the scheduler after a previous suspension.
+    ///
+    /// Returns `pdTRUE` if a context switch is pending.
     pub fn freertos_rs_task_resume_all() -> FreeRtosBaseType;
-    
-    /// Wrapper for xTaskGetSchedulerState()
-    /// Gets the current scheduler state
+
+    /// Gets the current scheduler state.
+    ///
+    /// Returns one of: `taskSCHEDULER_NOT_STARTED`, `taskSCHEDULER_RUNNING`,
+    /// or `taskSCHEDULER_SUSPENDED`.
     pub fn freertos_rs_task_get_scheduler_state() -> FreeRtosBaseType;
 }
 
@@ -122,52 +174,75 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for vTaskDelay()
-    /// Delays the current task for a specified number of ticks
+    /// Delays the current task for a specified number of ticks.
+    ///
+    /// Wraps `vTaskDelay()`. The task is blocked for approximately `ticks_to_delay`
+    /// tick periods. Use [`crate::projdefs::ms_to_ticks`] to convert milliseconds.
     pub fn freertos_rs_task_delay(ticks_to_delay: FreeRtosTickType);
-    
-    /// Wrapper for xTaskDelayUntil()
-    /// Delays a task until a specified time
+
+    /// Delays a task until a specified absolute time.
+    ///
+    /// Wraps `xTaskDelayUntil()`. Use for periodic tasks with fixed frequency.
+    /// Returns `pdTRUE` if the task was actually delayed.
     pub fn freertos_rs_task_delay_until(
         previous_wake_time: *mut FreeRtosTickType,
-        time_increment: FreeRtosTickType
+        time_increment: FreeRtosTickType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for vTaskDelete()
-    /// Deletes a task
+
+    /// Deletes a task.
+    ///
+    /// Wraps `vTaskDelete()`. Pass `NULL` to delete the calling task.
+    /// The task's memory is freed by the idle task.
     pub fn freertos_rs_task_delete(task_to_delete: FreeRtosTaskHandle);
-    
-    /// Wrapper for vTaskSuspend()
-    /// Suspends a task
+
+    /// Suspends a task.
+    ///
+    /// Wraps `vTaskSuspend()`. A suspended task will never run until resumed.
     pub fn freertos_rs_task_suspend(task_to_suspend: FreeRtosTaskHandle);
-    
-    /// Wrapper for vTaskResume()
-    /// Resumes a suspended task
+
+    /// Resumes a suspended task.
+    ///
+    /// Wraps `vTaskResume()`.
     pub fn freertos_rs_task_resume(task_to_resume: FreeRtosTaskHandle);
-    
-    /// Wrapper for xTaskResumeFromISR()
-    /// Resumes a suspended task from an ISR
-    pub fn freertos_rs_task_resume_from_isr(task_to_resume: FreeRtosTaskHandle) -> FreeRtosBaseType;
-    
-    /// Wrapper for vTaskPrioritySet()
-    /// Sets the priority of a task
-    pub fn freertos_rs_task_priority_set(task: FreeRtosTaskHandle, new_priority: FreeRtosUBaseType);
-    
-    /// Wrapper for uxTaskPriorityGet()
-    /// Gets the priority of a task
+
+    /// Resumes a suspended task from an ISR.
+    ///
+    /// Wraps `xTaskResumeFromISR()`. Returns `pdTRUE` if a context switch
+    /// should be requested.
+    pub fn freertos_rs_task_resume_from_isr(
+        task_to_resume: FreeRtosTaskHandle,
+    ) -> FreeRtosBaseType;
+
+    /// Sets the priority of a task.
+    pub fn freertos_rs_task_priority_set(
+        task: FreeRtosTaskHandle,
+        new_priority: FreeRtosUBaseType,
+    );
+
+    /// Gets the priority of a task.
     pub fn freertos_rs_task_priority_get(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for uxTaskPriorityGetFromISR()
-    /// Gets the priority of a task from an ISR
-    pub fn freertos_rs_task_priority_get_from_isr(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
+    /// Gets the priority of a task from an ISR.
+    pub fn freertos_rs_task_priority_get_from_isr(
+        task: FreeRtosTaskHandle,
+    ) -> FreeRtosUBaseType;
 
-    /// Wrapper for uxTaskBasePriorityGet()
-    /// Gets the base priority of a task
+    /// Gets the base priority of a task (before priority inheritance).
     pub fn freertos_rs_task_base_priority_get(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for uxTaskBasePriorityGetFromISR()
-    /// Gets the base priority of a task from an ISR
-    pub fn freertos_rs_task_base_priority_get_from_isr(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
+    /// Gets the base priority of a task from an ISR.
+    pub fn freertos_rs_task_base_priority_get_from_isr(
+        task: FreeRtosTaskHandle,
+    ) -> FreeRtosUBaseType;
+
+    /// Aborts the delay of a task, causing it to re-enter the ready state.
+    pub fn freertos_rs_task_abort_delay(task: FreeRtosTaskHandle) -> FreeRtosBaseType;
+
+    /// Disables preemption for a task (cooperative scheduling only).
+    pub fn freertos_rs_task_preemption_disable(task: FreeRtosTaskHandle);
+
+    /// Enables preemption for a task (cooperative scheduling only).
+    pub fn freertos_rs_task_preemption_enable(task: FreeRtosTaskHandle);
 }
 
 //===========================================================================
@@ -175,12 +250,10 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTaskGetTickCount()
-    /// Gets the current tick count
+    /// Gets the current tick count.
     pub fn freertos_rs_task_get_tick_count() -> FreeRtosTickType;
-    
-    /// Wrapper for xTaskGetTickCountFromISR()
-    /// Gets the current tick count from an ISR
+
+    /// Gets the current tick count from an ISR.
     pub fn freertos_rs_task_get_tick_count_from_isr() -> FreeRtosTickType;
 }
 
@@ -189,80 +262,88 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTaskNotify()
-    /// Sends a notification to a task
+    /// Sends a notification to a task (index 0).
+    ///
+    /// Wraps `xTaskNotify()`. This is a lightweight alternative to binary
+    /// semaphores, queues, and event groups.
     pub fn freertos_rs_task_notify(
         task_to_notify: FreeRtosTaskHandle,
         value: u32,
-        action: u32
+        action: u32,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTaskNotifyFromISR()
-    /// Sends a notification to a task from an ISR
+
+    /// Sends a notification to a task from an ISR.
     pub fn freertos_rs_task_notify_from_isr(
         task_to_notify: FreeRtosTaskHandle,
         value: u32,
         action: u32,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTaskNotifyWait()
-    /// Waits for a notification
+
+    /// Waits for a notification on index 0.
     pub fn freertos_rs_task_notify_wait(
         bits_to_clear_on_entry: u32,
         bits_to_clear_on_exit: u32,
         notification_value: *mut u32,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xTaskNotifyGive()
-    /// Gives a notification (increment)
+
+    /// Increments a task's notification value (index 0).
     pub fn freertos_rs_task_notify_give(task_to_notify: FreeRtosTaskHandle) -> FreeRtosBaseType;
-    
-    /// Wrapper for ulTaskNotifyTake()
-    /// Takes a notification (decrement or clear)
+
+    /// Takes (decrements or clears) a task notification value.
     pub fn freertos_rs_task_notify_take(
         clear_count_on_exit: FreeRtosBaseType,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> u32;
 
-    /// Wrapper for xTaskGenericNotify()
-    /// Generic task notification function
+    /// Generic task notification with explicit index.
     pub fn freertos_rs_task_generic_notify(
         task_to_notify: FreeRtosTaskHandle,
         index_to_notify: FreeRtosUBaseType,
         value: u32,
         action: u32,
-        previous_notification_value: *mut u32
+        previous_notification_value: *mut u32,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskGenericNotifyFromISR()
-    /// Generic task notification function from ISR
+    /// Generic task notification from ISR with explicit index.
     pub fn freertos_rs_task_generic_notify_from_isr(
         task_to_notify: FreeRtosTaskHandle,
         index_to_notify: FreeRtosUBaseType,
         value: u32,
         action: u32,
         previous_notification_value: *mut u32,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskGenericNotifyWait()
-    /// Generic task notification wait function
+    /// Gives a notification (increment) from ISR with explicit index.
+    pub fn freertos_rs_task_generic_notify_give_from_isr(
+        task_to_notify: FreeRtosTaskHandle,
+        index_to_notify: FreeRtosUBaseType,
+        higher_priority_task_woken: *mut FreeRtosBaseType,
+    );
+
+    /// Generic notification wait with explicit index.
     pub fn freertos_rs_task_generic_notify_wait(
         index_to_wait_on: FreeRtosUBaseType,
         bits_to_clear_on_entry: u32,
         bits_to_clear_on_exit: u32,
         notification_value: *mut u32,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskGenericNotifyStateClear()
-    /// Clears the notification state of a task
+    /// Clears the notification state (pending/not-pending) for a given index.
     pub fn freertos_rs_task_generic_notify_state_clear(
         task: FreeRtosTaskHandle,
-        index_to_clear: FreeRtosUBaseType
+        index_to_clear: FreeRtosUBaseType,
     ) -> FreeRtosBaseType;
+
+    /// Clears specific bits in a task notification value.
+    pub fn freertos_rs_task_generic_notify_value_clear(
+        task: FreeRtosTaskHandle,
+        index_to_clear: FreeRtosUBaseType,
+        bits_to_clear: u32,
+    ) -> u32;
 }
 
 //===========================================================================
@@ -270,178 +351,121 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xTaskGetApplicationTaskTag()
-    /// Gets the application task tag
-    pub fn freertos_rs_task_get_application_task_tag(
-        task: FreeRtosTaskHandle
-    ) -> FreeRtosVoidPtr;
+    /// Gets the application task tag.
+    pub fn freertos_rs_task_get_application_task_tag(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr;
 
-    /// Wrapper for vTaskSetApplicationTaskTag()
-    /// Sets the application task tag
-    pub fn freertos_rs_task_set_application_task_tag(
-        task: FreeRtosTaskHandle,
-        tag_value: FreeRtosVoidPtr
-    );
+    /// Sets the application task tag.
+    pub fn freertos_rs_task_set_application_task_tag(task: FreeRtosTaskHandle, tag_value: FreeRtosVoidPtr);
 
-    /// Wrapper for xTaskCallApplicationTaskHook()
-    /// Calls the application task hook
+    /// Calls the application task hook function.
     pub fn freertos_rs_task_call_application_task_hook(
         task: FreeRtosTaskHandle,
-        parameter: FreeRtosVoidPtr
+        parameter: FreeRtosVoidPtr,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for pcTaskGetName()
-    /// Gets the name of a task
-    pub fn freertos_rs_task_get_name(
-        task: FreeRtosTaskHandle
-    ) -> *const u8;
+    /// Gets the name of a task.
+    pub fn freertos_rs_task_get_name(task: FreeRtosTaskHandle) -> *const u8;
 
-    /// Wrapper for xTaskGetHandle()
-    /// Gets the handle of a task by name
-    pub fn freertos_rs_task_get_handle(
-        task_name: *const u8
-    ) -> FreeRtosTaskHandle;
+    /// Gets a task handle by name.
+    pub fn freertos_rs_task_get_handle(task_name: *const u8) -> FreeRtosTaskHandle;
 
-    /// Wrapper for xTaskGetCurrentTaskHandle()
-    /// Gets the handle of the currently running task
+    /// Gets the handle of the currently running task.
     pub fn freertos_rs_task_get_current_task_handle() -> FreeRtosTaskHandle;
 
-    /// Wrapper for xTaskGetIdleTaskHandle()
-    /// Gets the handle of the idle task
+    /// Gets the handle of the idle task.
     pub fn freertos_rs_task_get_idle_task_handle() -> FreeRtosTaskHandle;
 
-    /// Wrapper for uxTaskGetStackHighWaterMark()
-    /// Gets the high water mark of a task's stack
-    pub fn freertos_rs_task_get_stack_high_water_mark(
-        task: FreeRtosTaskHandle
-    ) -> FreeRtosUBaseType;
+    /// Gets the high water mark of a task's stack (in words).
+    pub fn freertos_rs_task_get_stack_high_water_mark(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 
-    /// Wrapper for uxTaskGetStackHighWaterMark2()
-    /// Gets the high water mark of a task's stack (configSTACK_DEPTH_TYPE return type)
-    pub fn freertos_rs_task_get_stack_high_water_mark2(
-        task: FreeRtosTaskHandle
-    ) -> FreeRtosConfigStackDepthType;
+    /// Gets the high water mark of a task's stack (configSTACK_DEPTH_TYPE).
+    pub fn freertos_rs_task_get_stack_high_water_mark2(task: FreeRtosTaskHandle) -> FreeRtosConfigStackDepthType;
 
-    /// Wrapper for xTaskGetStaticBuffers()
-    /// Gets the static buffers associated with a task
+    /// Gets the static buffers associated with a task.
     pub fn freertos_rs_task_get_static_buffers(
         task: FreeRtosTaskHandle,
         stack_buffer: *mut FreeRtosStackType,
-        task_buffer: *mut FreeRtosStaticTask
+        task_buffer: *mut FreeRtosStaticTask,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for ulTaskGetRunTimeCounter()
-    /// Gets the run time counter for a task
+    /// Gets the run time counter for a task.
     pub fn freertos_rs_task_get_run_time_counter(task: FreeRtosTaskHandle) -> u32;
 
-    /// Wrapper for ulTaskGetRunTimePercent()
-    /// Gets the run time percentage for a task
+    /// Gets the run time percentage for a task.
     pub fn freertos_rs_task_get_run_time_percent(task: FreeRtosTaskHandle) -> u32;
 
-    /// Wrapper for eTaskGetState()
-    /// Gets the state of a task
-    pub fn freertos_rs_task_get_state(
-        task: FreeRtosTaskHandle
-    ) -> u32;
+    /// Gets the run time counter of the idle task.
+    ///
+    /// Wraps `ulTaskGetIdleRunTimeCounter()`. Available when
+    /// `configGENERATE_RUN_TIME_STATS` is enabled.
+    pub fn freertos_rs_task_get_idle_run_time_counter() -> u32;
 
-    /// Wrapper for vTaskList()
-    /// Generates a human readable table of task states
-    pub fn freertos_rs_task_list(
-        write_buffer: *mut u8
-    );
+    /// Gets the percentage of CPU time used by the idle task.
+    ///
+    /// Wraps `ulTaskGetIdleRunTimePercent()`. Available when
+    /// `configGENERATE_RUN_TIME_STATS` is enabled.
+    pub fn freertos_rs_task_get_idle_run_time_percent() -> u32;
 
-    /// Wrapper for vTaskGetRunTimeStats()
-    /// Generates a human readable table of run time stats
-    pub fn freertos_rs_task_get_run_time_stats(
-        write_buffer: *mut u8
-    );
+    /// Gets the state of a task as a `u32`.
+    pub fn freertos_rs_task_get_state(task: FreeRtosTaskHandle) -> u32;
 
-    /// Wrapper for uxTaskGetNumberOfTasks()
-    /// Gets the number of tasks in the system
+    /// Generates a human-readable table of task states.
+    pub fn freertos_rs_task_list(write_buffer: *mut u8);
+
+    /// Generates a human-readable table of run time statistics.
+    pub fn freertos_rs_task_get_run_time_stats(write_buffer: *mut u8);
+
+    /// Gets the number of tasks in the system.
     pub fn freertos_rs_task_get_number_of_tasks() -> FreeRtosUBaseType;
 
-    /// Wrapper for uxTaskGetSystemState()
-    /// Gets detailed task information
+    /// Gets detailed task information for all tasks.
     pub fn freertos_rs_task_get_system_state(
         task_status_array: FreeRtosVoidPtr,
         array_size: FreeRtosUBaseType,
-        total_run_time: *mut u32
+        total_run_time: *mut u32,
     ) -> FreeRtosUBaseType;
 
-    /// Wrapper for vTaskGetInfo()
-    /// Gets information about a specific task
+    /// Gets information about a specific task.
     pub fn freertos_rs_task_get_info(
         task: FreeRtosTaskHandle,
         task_status: FreeRtosVoidPtr,
         get_free_stack_space: FreeRtosBaseType,
-        state: u32
+        state: u32,
     );
 
-    /// Wrapper for vTaskSetThreadLocalStoragePointer()
-    /// Sets a thread local storage pointer
+    /// Sets a thread-local storage pointer.
     pub fn freertos_rs_task_set_thread_local_storage_pointer(
         task: FreeRtosTaskHandle,
         index: FreeRtosBaseType,
-        value: FreeRtosVoidPtr
+        value: FreeRtosVoidPtr,
     );
 
-    /// Wrapper for pvTaskGetThreadLocalStoragePointer()
-    /// Gets a thread local storage pointer
+    /// Gets a thread-local storage pointer.
     pub fn freertos_rs_task_get_thread_local_storage_pointer(
         task: FreeRtosTaskHandle,
-        index: FreeRtosBaseType
+        index: FreeRtosBaseType,
     ) -> FreeRtosVoidPtr;
 
-    /// Wrapper for xTaskAbortDelay()
-    /// Aborts the delay of a task
-    pub fn freertos_rs_task_abort_delay(
-        task: FreeRtosTaskHandle
-    ) -> FreeRtosBaseType;
+    /// Sets the timeout state for bounded wait loops.
+    pub fn freertos_rs_task_set_time_out_state(time_out: *mut FreeRtosTimeOut);
 
-    /// Wrapper for vTaskSetTimeOutState()
-    /// Sets timeout state
-    pub fn freertos_rs_task_set_time_out_state(
-        time_out: *mut FreeRtosTimeOut
-    );
-
-    /// Wrapper for xTaskCheckForTimeOut()
-    /// Checks for timeout
+    /// Checks if a timeout has occurred.
     pub fn freertos_rs_task_check_for_time_out(
         time_out: *mut FreeRtosTimeOut,
-        ticks_to_wait: *mut FreeRtosTickType
+        ticks_to_wait: *mut FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
-    /// Wrapper for xTaskCatchUpTicks()
-    /// Catches up ticks after low power mode
-    pub fn freertos_rs_task_catch_up_ticks(
-        ticks_to_catch_up: FreeRtosTickType
-    ) -> FreeRtosBaseType;
+    /// Catches up ticks after exiting a low-power mode.
+    pub fn freertos_rs_task_catch_up_ticks(ticks_to_catch_up: FreeRtosTickType) -> FreeRtosBaseType;
 
-    /// Wrapper for vTaskResetState()
-    /// Resets the task state
+    /// Resets the task state (internal).
     pub fn freertos_rs_task_reset_state();
 
-    /// Wrapper for ulTaskGenericNotifyValueClear()
-    /// Clears specific bits in a task notification value
-    pub fn freertos_rs_task_generic_notify_value_clear(
-        task: FreeRtosTaskHandle,
-        index_to_clear: FreeRtosUBaseType,
-        bits_to_clear: u32
-    ) -> u32;
+    /// Generates a task list with buffer length safety.
+    pub fn freertos_rs_task_list_tasks(write_buffer: *mut u8, buffer_length: usize);
 
-    /// Wrapper for vTaskListTasks()
-    /// Generates a human readable table of task states with buffer length
-    pub fn freertos_rs_task_list_tasks(
-        write_buffer: *mut u8,
-        buffer_length: usize
-    );
-
-    /// Wrapper for vTaskGetRunTimeStatistics()
-    /// Generates a human readable table of run time stats with buffer length
-    pub fn freertos_rs_task_get_run_time_statistics(
-        write_buffer: *mut u8,
-        buffer_length: usize
-    );
+    /// Generates run time statistics with buffer length safety.
+    pub fn freertos_rs_task_get_run_time_statistics(write_buffer: *mut u8, buffer_length: usize);
 }
 
 //===========================================================================
@@ -449,50 +473,260 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for taskENTER_CRITICAL()
-    /// Enters a critical section
+    /// Enters a critical section (disables interrupts).
     pub fn freertos_rs_task_enter_critical();
 
-    /// Wrapper for taskEXIT_CRITICAL()
-    /// Exits a critical section
+    /// Exits a critical section (re-enables interrupts).
     pub fn freertos_rs_task_exit_critical();
 
-    /// Wrapper for taskENTER_CRITICAL_FROM_ISR()
-    /// Enters a critical section from ISR
+    /// Enters a critical section from ISR, returns previous interrupt state.
     pub fn freertos_rs_task_enter_critical_from_isr() -> FreeRtosUBaseType;
 
-    /// Wrapper for taskEXIT_CRITICAL_FROM_ISR()
-    /// Exits a critical section from ISR
+    /// Exits a critical section from ISR, restores previous interrupt state.
     pub fn freertos_rs_task_exit_critical_from_isr(saved_interrupt_status: FreeRtosUBaseType);
 
-    /// Wrapper for taskDISABLE_INTERRUPTS()
-    /// Disables interrupts
+    /// Disables all maskable interrupts (port-level).
     pub fn freertos_rs_task_disable_interrupts();
 
-    /// Wrapper for taskENABLE_INTERRUPTS()
-    /// Enables interrupts
+    /// Enables all maskable interrupts (port-level).
     pub fn freertos_rs_task_enable_interrupts();
 
-    /// Wrapper for vTaskAllocateMPURegions()
-    /// Allocates MPU regions to a task
+    /// Allocates MPU regions to a task.
     pub fn freertos_rs_task_allocate_mpu_regions(
         task_to_modify: FreeRtosTaskHandle,
-        regions: *const FreeRtosVoidPtr
+        regions: *const FreeRtosVoidPtr,
     );
 
-    /// Wrapper for xTaskIncrementTick()
-    /// Increments the tick count (called by tick interrupt)
+    /// Increments the tick count (called by the tick ISR).
     pub fn freertos_rs_task_increment_tick() -> FreeRtosBaseType;
 
-    /// Wrapper for vTaskStepTick()
-    /// Steps the tick count forward by specified amount
+    /// Steps the tick count forward (tickless idle support).
     pub fn freertos_rs_task_step_tick(ticks_to_jump: FreeRtosTickType);
+}
 
-    /// Wrapper for vTaskPreemptionDisable()
-    /// Disables preemption for a task
-    pub fn freertos_rs_task_preemption_disable(task: FreeRtosTaskHandle);
+//===========================================================================
+// EXTERNAL C FUNCTION DECLARATIONS - ADDITIONAL INTERNAL API
+//===========================================================================
 
-    /// Wrapper for vTaskPreemptionEnable()
-    /// Enables preemption for a task
-    pub fn freertos_rs_task_preemption_enable(task: FreeRtosTaskHandle);
+unsafe extern "C" {
+    /// Indicates a context switch was missed (internal).
+    pub fn freertos_rs_task_missed_yield();
+
+    /// Inherits priority from a mutex-holding task.
+    pub fn freertos_rs_task_priority_inherit(
+        mutex_holder: FreeRtosTaskHandle,
+    ) -> FreeRtosBaseType;
+
+    /// Disinherits priority when releasing a mutex.
+    pub fn freertos_rs_task_priority_disinherit(
+        mutex_holder: FreeRtosTaskHandle,
+    ) -> FreeRtosBaseType;
+
+    /// Disinherits priority after a mutex timeout.
+    pub fn freertos_rs_task_priority_disinherit_after_timeout(
+        mutex_holder: FreeRtosTaskHandle,
+        highest_priority_waiting: FreeRtosUBaseType,
+    );
+
+    /// Removes a task from an event list (internal).
+    pub fn freertos_rs_task_remove_from_event_list(
+        event_list: FreeRtosConstVoidPtr,
+    ) -> FreeRtosBaseType;
+
+    /// Resets the event item value of the current task (internal).
+    pub fn freertos_rs_task_reset_event_item_value() -> FreeRtosUBaseType;
+
+    /// Increments the mutex held count (internal).
+    pub fn freertos_rs_task_increment_mutex_held_count() -> FreeRtosVoidPtr;
+
+    /// Gets the current task handle for a specific core (SMP only).
+    pub fn freertos_rs_task_get_current_task_handle_for_core(
+        core_id: FreeRtosBaseType,
+    ) -> FreeRtosTaskHandle;
+
+    /// Gets the idle task handle for a specific core (SMP only).
+    pub fn freertos_rs_task_get_idle_task_handle_for_core(
+        core_id: FreeRtosBaseType,
+    ) -> FreeRtosTaskHandle;
+
+    /// Gets the task number used for tracing.
+    pub fn freertos_rs_task_get_task_number(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
+
+    /// Sets the task number used for tracing.
+    pub fn freertos_rs_task_set_task_number(
+        task: FreeRtosTaskHandle,
+        task_number: FreeRtosUBaseType,
+    );
+
+    /// Checks if the system can enter sleep mode (tickless idle support).
+    pub fn freertos_rs_task_confirm_sleep_mode_status() -> FreeRtosBaseType;
+
+    /// Gets the static memory for the idle task (static allocation).
+    ///
+    /// Wraps `vTaskGetIdleTaskMemory()`. Used when `configSUPPORT_STATIC_ALLOCATION == 1`
+    /// to provide the idle task's TCB and stack buffers.
+    pub fn freertos_rs_task_get_idle_task_memory(
+        tcb_buffer: *mut FreeRtosStaticTask,
+        stack_buffer: *mut FreeRtosStackType,
+        stack_size: *mut u32,
+    );
+
+    /// Gets the static memory for the passive idle task (SMP, static allocation).
+    ///
+    /// Wraps `vTaskGetPassiveIdleTaskMemory()`. Only available when
+    /// `configNUMBER_OF_CORES > 1` and `configSUPPORT_STATIC_ALLOCATION == 1`.
+    pub fn freertos_rs_task_get_passive_idle_task_memory(
+        tcb_buffer: *mut FreeRtosStaticTask,
+        stack_buffer: *mut FreeRtosStackType,
+        stack_size: *mut u32,
+        core_id: FreeRtosBaseType,
+    );
+}
+
+// Note: freertos_rs_port_yield() is declared in portable.rs to keep all
+// port-level functions together. Use crate::portable::freertos_rs_port_yield.
+
+//===========================================================================
+// SAFE WRAPPER - CRITICAL SECTION RAII GUARD
+//===========================================================================
+
+/// RAII guard for a FreeRTOS critical section.
+///
+/// Disables interrupts on creation and re-enables them on drop. Use this
+/// instead of manually calling `taskENTER_CRITICAL` / `taskEXIT_CRITICAL`.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use freertos_api_rs::task::CriticalSection;
+///
+/// {
+///     let _cs = CriticalSection::enter();
+///     // Interrupts are disabled in this scope
+///     // Access shared resources safely
+/// } // Interrupts re-enabled here when _cs is dropped
+/// ```
+pub struct CriticalSection {
+    _private: (), // Prevent construction outside of `enter()`
+}
+
+impl CriticalSection {
+    /// Enters a critical section, disabling interrupts.
+    ///
+    /// Interrupts will be re-enabled when the returned guard is dropped.
+    pub fn enter() -> Self {
+        unsafe { freertos_rs_task_enter_critical() };
+        Self { _private: () }
+    }
+}
+
+impl Drop for CriticalSection {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_task_exit_critical() };
+    }
+}
+
+// Safety: CriticalSection disables interrupts; it's Send because it can be
+// created on any thread but should not be shared across threads.
+unsafe impl Send for CriticalSection {}
+
+/// RAII guard for a critical section entered from an ISR context.
+///
+/// Saves the interrupt state on creation and restores it on drop.
+pub struct CriticalSectionFromIsr {
+    saved_state: FreeRtosUBaseType,
+}
+
+impl CriticalSectionFromIsr {
+    /// Enters a critical section from an ISR.
+    pub fn enter() -> Self {
+        let saved_state = unsafe { freertos_rs_task_enter_critical_from_isr() };
+        Self { saved_state }
+    }
+}
+
+impl Drop for CriticalSectionFromIsr {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_task_exit_critical_from_isr(self.saved_state) };
+    }
+}
+
+//===========================================================================
+// SAFE WRAPPER - PREEMPTION GUARD RAII
+//===========================================================================
+
+/// RAII guard that disables preemption for a specific task.
+///
+/// Calls `vTaskPreemptionDisable()` on creation and `vTaskPreemptionEnable()`
+/// on drop. This is used for cooperative scheduling within a preemptive system.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use freertos_api_rs::task::PreemptionGuard;
+/// use freertos_api_rs::task::freertos_rs_task_get_current_task_handle;
+///
+/// let task = unsafe { freertos_rs_task_get_current_task_handle() };
+/// {
+///     let _guard = PreemptionGuard::disable(task);
+///     // This task will not be preempted in this scope
+/// } // Preemption re-enabled on drop
+/// ```
+pub struct PreemptionGuard {
+    task: FreeRtosTaskHandle,
+}
+
+impl PreemptionGuard {
+    /// Disables preemption for the given task.
+    ///
+    /// Preemption will be re-enabled when the guard is dropped.
+    pub fn disable(task: FreeRtosTaskHandle) -> Self {
+        unsafe { freertos_rs_task_preemption_disable(task) };
+        Self { task }
+    }
+}
+
+impl Drop for PreemptionGuard {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_task_preemption_enable(self.task) };
+    }
+}
+
+// Safety: PreemptionGuard controls scheduling state, not shared data.
+unsafe impl Send for PreemptionGuard {}
+
+//===========================================================================
+// UNIT TESTS
+//===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_critical_section_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<CriticalSection>();
+    }
+
+    #[test]
+    fn test_critical_section_from_isr_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<CriticalSectionFromIsr>();
+    }
+
+    #[test]
+    fn test_preemption_guard_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<PreemptionGuard>();
+    }
+
+    #[test]
+    fn test_constants_match() {
+        use crate::base::*;
+        assert_eq!(PD_PASS, 1);
+        assert_eq!(PD_TRUE, 1);
+        assert_eq!(PD_FALSE, 0);
+        assert_eq!(PORT_MAX_DELAY, 0xFFFFFFFF);
+    }
 }

@@ -1,32 +1,113 @@
+//! FreeRTOS stream buffer module.
+//!
+//! Provides FFI bindings and a safe `StreamBuffer` wrapper for FreeRTOS stream
+//! buffers. Stream buffers are variable-length byte streams optimized for
+//! sending continuous streams of data between tasks and ISRs.
+//!
+//! Unlike queues, stream buffers operate on byte arrays rather than fixed-size items.
+
 use crate::base::{
-    FreeRtosBaseType, FreeRtosTickType, FreeRtosStreamBufferHandle,
-    FreeRtosVoidPtr
+    FreeRtosBaseType, FreeRtosTickType, FreeRtosStreamBufferHandle, FreeRtosVoidPtr,
+    FreeRtosUBaseType, FreeRtosError, PD_PASS, PD_TRUE,
+    FreeRtosStreamBufferCallbackFunction,
 };
+
+//===========================================================================
+// STREAM BUFFER TYPE CONSTANTS
+//===========================================================================
+
+/// Stream buffer type identifier (`sbTYPE_STREAM_BUFFER`).
+pub const SB_TYPE_STREAM_BUFFER: u8 = 0;
+
+/// Message buffer type identifier (`sbTYPE_MESSAGE_BUFFER`).
+pub const SB_TYPE_MESSAGE_BUFFER: u8 = 1;
+
+/// Stream batching buffer type identifier (`sbTYPE_STREAM_BATCHING_BUFFER`).
+pub const SB_TYPE_STREAM_BATCHING_BUFFER: u8 = 2;
 
 //===========================================================================
 // EXTERNAL C FUNCTION DECLARATIONS - STREAM BUFFER CREATION
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xStreamBufferCreate()
-    /// Creates a stream buffer
+    /// Creates a stream buffer with dynamic allocation.
     pub fn freertos_rs_stream_buffer_create(
         buffer_size_bytes: usize,
-        trigger_level_bytes: usize
+        trigger_level_bytes: usize,
     ) -> FreeRtosStreamBufferHandle;
-    
-    /// Wrapper for xStreamBufferCreateStatic()
-    /// Creates a stream buffer using statically allocated memory
+
+    /// Creates a stream buffer with static allocation.
     pub fn freertos_rs_stream_buffer_create_static(
         buffer_size_bytes: usize,
         trigger_level_bytes: usize,
         storage_buffer: *mut u8,
-        stream_buffer_struct: FreeRtosVoidPtr
+        stream_buffer_struct: FreeRtosVoidPtr,
     ) -> FreeRtosStreamBufferHandle;
-    
-    /// Wrapper for vStreamBufferDelete()
-    /// Deletes a stream buffer
+
+    /// Deletes a stream buffer.
     pub fn freertos_rs_stream_buffer_delete(stream_buffer: FreeRtosStreamBufferHandle);
+}
+
+//===========================================================================
+// EXTERNAL C FUNCTION DECLARATIONS - STREAM BUFFER WITH CALLBACK CREATION
+//===========================================================================
+
+unsafe extern "C" {
+    /// Creates a stream buffer with send/receive completion callbacks.
+    pub fn freertos_rs_stream_buffer_create_with_callback(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> FreeRtosStreamBufferHandle;
+
+    /// Creates a static stream buffer with send/receive completion callbacks.
+    pub fn freertos_rs_stream_buffer_create_static_with_callback(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+        storage_buffer: *mut u8,
+        stream_buffer_struct: FreeRtosVoidPtr,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> FreeRtosStreamBufferHandle;
+}
+
+//===========================================================================
+// EXTERNAL C FUNCTION DECLARATIONS - STREAM BATCHING BUFFER
+//===========================================================================
+
+unsafe extern "C" {
+    /// Creates a batching stream buffer.
+    pub fn freertos_rs_stream_batching_buffer_create(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+    ) -> FreeRtosStreamBufferHandle;
+
+    /// Creates a batching stream buffer with callbacks.
+    pub fn freertos_rs_stream_batching_buffer_create_with_callback(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> FreeRtosStreamBufferHandle;
+
+    /// Creates a static batching stream buffer.
+    pub fn freertos_rs_stream_batching_buffer_create_static(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+        storage_buffer: *mut u8,
+        stream_buffer_struct: FreeRtosVoidPtr,
+    ) -> FreeRtosStreamBufferHandle;
+
+    /// Creates a static batching stream buffer with callbacks.
+    pub fn freertos_rs_stream_batching_buffer_create_static_with_callback(
+        buffer_size_bytes: usize,
+        trigger_level_bytes: usize,
+        storage_buffer: *mut u8,
+        stream_buffer_struct: FreeRtosVoidPtr,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> FreeRtosStreamBufferHandle;
 }
 
 //===========================================================================
@@ -34,29 +115,59 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xStreamBufferSend()
-    /// Sends data to a stream buffer
+    /// Sends data to a stream buffer.
     pub fn freertos_rs_stream_buffer_send(
         stream_buffer: FreeRtosStreamBufferHandle,
         data: *const FreeRtosVoidPtr,
         data_length_bytes: usize,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> usize;
-    
-    /// Wrapper for xStreamBufferReceive()
-    /// Receives data from a stream buffer
+
+    /// Receives data from a stream buffer.
     pub fn freertos_rs_stream_buffer_receive(
         stream_buffer: FreeRtosStreamBufferHandle,
         buffer: FreeRtosVoidPtr,
         buffer_length_bytes: usize,
-        ticks_to_wait: FreeRtosTickType
+        ticks_to_wait: FreeRtosTickType,
     ) -> usize;
-    
-    /// Wrapper for xStreamBufferReset()
-    /// Resets a stream buffer
+
+    /// Resets a stream buffer.
     pub fn freertos_rs_stream_buffer_reset(
-        stream_buffer: FreeRtosStreamBufferHandle
+        stream_buffer: FreeRtosStreamBufferHandle,
     ) -> FreeRtosBaseType;
+
+    /// Resets a stream buffer from an ISR.
+    pub fn freertos_rs_stream_buffer_reset_from_isr(
+        stream_buffer: FreeRtosStreamBufferHandle,
+    ) -> FreeRtosBaseType;
+
+    /// ISR completion callback for send.
+    pub fn freertos_rs_stream_buffer_send_completed_from_isr(
+        stream_buffer: FreeRtosStreamBufferHandle,
+        higher_priority_task_woken: *mut FreeRtosBaseType,
+    ) -> FreeRtosBaseType;
+
+    /// ISR completion callback for receive.
+    pub fn freertos_rs_stream_buffer_receive_completed_from_isr(
+        stream_buffer: FreeRtosStreamBufferHandle,
+        higher_priority_task_woken: *mut FreeRtosBaseType,
+    ) -> FreeRtosBaseType;
+
+    /// Gets the length of the next message in a batching stream buffer.
+    pub fn freertos_rs_stream_buffer_next_message_length_bytes(
+        stream_buffer: FreeRtosStreamBufferHandle,
+    ) -> usize;
+
+    /// Gets the notification index for a stream buffer.
+    pub fn freertos_rs_stream_buffer_get_notification_index(
+        stream_buffer: FreeRtosStreamBufferHandle,
+    ) -> FreeRtosUBaseType;
+
+    /// Sets the notification index for a stream buffer.
+    pub fn freertos_rs_stream_buffer_set_notification_index(
+        stream_buffer: FreeRtosStreamBufferHandle,
+        notification_index: FreeRtosUBaseType,
+    );
 }
 
 //===========================================================================
@@ -64,22 +175,20 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xStreamBufferSendFromISR()
-    /// Sends data to a stream buffer from an ISR
+    /// Sends data to a stream buffer from an ISR.
     pub fn freertos_rs_stream_buffer_send_from_isr(
         stream_buffer: FreeRtosStreamBufferHandle,
         data: *const FreeRtosVoidPtr,
         data_length_bytes: usize,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> usize;
-    
-    /// Wrapper for xStreamBufferReceiveFromISR()
-    /// Receives data from a stream buffer from an ISR
+
+    /// Receives data from a stream buffer from an ISR.
     pub fn freertos_rs_stream_buffer_receive_from_isr(
         stream_buffer: FreeRtosStreamBufferHandle,
         buffer: FreeRtosVoidPtr,
         buffer_length_bytes: usize,
-        higher_priority_task_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> usize;
 }
 
@@ -88,34 +197,338 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xStreamBufferBytesAvailable()
-    /// Returns the number of bytes available in a stream buffer
+    /// Returns the number of bytes available to read.
     pub fn freertos_rs_stream_buffer_bytes_available(
-        stream_buffer: FreeRtosStreamBufferHandle
+        stream_buffer: FreeRtosStreamBufferHandle,
     ) -> usize;
-    
-    /// Wrapper for xStreamBufferSpacesAvailable()
-    /// Returns the number of bytes that can be written to a stream buffer
+
+    /// Returns the number of bytes that can be written.
     pub fn freertos_rs_stream_buffer_spaces_available(
-        stream_buffer: FreeRtosStreamBufferHandle
+        stream_buffer: FreeRtosStreamBufferHandle,
     ) -> usize;
-    
-    /// Wrapper for xStreamBufferIsFull()
-    /// Checks if a stream buffer is full
+
+    /// Checks if a stream buffer is full.
     pub fn freertos_rs_stream_buffer_is_full(
-        stream_buffer: FreeRtosStreamBufferHandle
+        stream_buffer: FreeRtosStreamBufferHandle,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xStreamBufferIsEmpty()
-    /// Checks if a stream buffer is empty
+
+    /// Checks if a stream buffer is empty.
     pub fn freertos_rs_stream_buffer_is_empty(
-        stream_buffer: FreeRtosStreamBufferHandle
+        stream_buffer: FreeRtosStreamBufferHandle,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for xStreamBufferSetTriggerLevel()
-    /// Sets the trigger level of a stream buffer
+
+    /// Sets the trigger level.
     pub fn freertos_rs_stream_buffer_set_trigger_level(
         stream_buffer: FreeRtosStreamBufferHandle,
-        trigger_level: usize
+        trigger_level: usize,
     ) -> FreeRtosBaseType;
+
+    /// Gets static buffers for a stream buffer.
+    pub fn freertos_rs_stream_buffer_get_static_buffers(
+        stream_buffer: FreeRtosStreamBufferHandle,
+        storage_area: *mut *mut u8,
+        static_buffer: *mut FreeRtosVoidPtr,
+    ) -> FreeRtosBaseType;
+
+    /// Sets the stream buffer number for tracing.
+    pub fn freertos_rs_stream_buffer_set_stream_buffer_number(
+        stream_buffer: FreeRtosStreamBufferHandle,
+        stream_buffer_number: FreeRtosUBaseType,
+    );
+
+    /// Gets the stream buffer number for tracing.
+    pub fn freertos_rs_stream_buffer_get_stream_buffer_number(
+        stream_buffer: FreeRtosStreamBufferHandle,
+    ) -> FreeRtosUBaseType;
+
+    /// Gets the stream buffer type.
+    pub fn freertos_rs_stream_buffer_get_stream_buffer_type(
+        stream_buffer: FreeRtosStreamBufferHandle,
+    ) -> u8;
+}
+
+//===========================================================================
+// SAFE WRAPPER - STREAM BUFFER
+//===========================================================================
+
+/// A FreeRTOS stream buffer for byte-oriented data transfer.
+///
+/// Stream buffers are optimized for continuous data streams where the sender
+/// and receiver may operate at different rates.
+pub struct StreamBuffer {
+    handle: FreeRtosStreamBufferHandle,
+}
+
+impl StreamBuffer {
+    /// Creates a new stream buffer.
+    ///
+    /// # Arguments
+    /// * `buffer_size` — Size of the internal buffer in bytes
+    /// * `trigger_level` — Minimum bytes required before a blocked read unblocks
+    pub fn new(buffer_size: usize, trigger_level: usize) -> Result<Self, FreeRtosError> {
+        let handle = unsafe { freertos_rs_stream_buffer_create(buffer_size, trigger_level) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Sends data to the stream buffer. Returns the number of bytes actually sent.
+    pub fn send(&self, data: &[u8], ticks_to_wait: FreeRtosTickType) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_send(
+                self.handle,
+                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.len(),
+                ticks_to_wait,
+            )
+        }
+    }
+
+    /// Receives data from the stream buffer. Returns the number of bytes received.
+    pub fn receive(&self, buffer: &mut [u8], ticks_to_wait: FreeRtosTickType) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_receive(
+                self.handle,
+                buffer.as_mut_ptr() as FreeRtosVoidPtr,
+                buffer.len(),
+                ticks_to_wait,
+            )
+        }
+    }
+
+    /// Resets the stream buffer.
+    pub fn reset(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_reset(self.handle) == PD_PASS }
+    }
+
+    /// Returns `true` if the stream buffer is full.
+    pub fn is_full(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_is_full(self.handle) == PD_TRUE }
+    }
+
+    /// Returns `true` if the stream buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_is_empty(self.handle) == PD_TRUE }
+    }
+
+    /// Returns the number of bytes available to read.
+    pub fn bytes_available(&self) -> usize {
+        unsafe { freertos_rs_stream_buffer_bytes_available(self.handle) }
+    }
+
+    /// Returns the number of bytes that can be written.
+    pub fn spaces_available(&self) -> usize {
+        unsafe { freertos_rs_stream_buffer_spaces_available(self.handle) }
+    }
+
+    /// Sets the trigger level. Returns `true` on success.
+    pub fn set_trigger_level(&self, trigger_level: usize) -> bool {
+        unsafe { freertos_rs_stream_buffer_set_trigger_level(self.handle, trigger_level) == PD_TRUE }
+    }
+
+    /// Sends data from an ISR. Returns bytes sent.
+    pub fn send_from_isr(
+        &self,
+        data: &[u8],
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_send_from_isr(
+                self.handle,
+                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.len(),
+                higher_priority_task_woken,
+            )
+        }
+    }
+
+    /// Receives data from an ISR. Returns bytes received.
+    pub fn receive_from_isr(
+        &self,
+        buffer: &mut [u8],
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_receive_from_isr(
+                self.handle,
+                buffer.as_mut_ptr() as FreeRtosVoidPtr,
+                buffer.len(),
+                higher_priority_task_woken,
+            )
+        }
+    }
+
+    /// Sets the task notification index used by this stream buffer.
+    ///
+    /// When data is sent/received, the stream buffer notifies the waiting
+    /// task using this notification index.
+    pub fn set_notification_index(&self, index: FreeRtosUBaseType) {
+        unsafe { freertos_rs_stream_buffer_set_notification_index(self.handle, index) };
+    }
+
+    /// Gets the task notification index used by this stream buffer.
+    pub fn get_notification_index(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_stream_buffer_get_notification_index(self.handle) }
+    }
+}
+
+impl Drop for StreamBuffer {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+    }
+}
+
+unsafe impl Send for StreamBuffer {}
+
+//===========================================================================
+// SAFE WRAPPER - BATCHING STREAM BUFFER
+//===========================================================================
+
+/// A FreeRTOS batching stream buffer for accumulating data before triggering a read.
+///
+/// Unlike regular stream buffers, batching buffers accumulate data until the
+/// trigger level is reached before unblocking a waiting task. This is useful
+/// for batching small writes into larger reads.
+pub struct BatchingBuffer {
+    handle: FreeRtosStreamBufferHandle,
+}
+
+impl BatchingBuffer {
+    /// Creates a new batching stream buffer.
+    ///
+    /// # Arguments
+    /// * `buffer_size` — Size of the internal buffer in bytes
+    /// * `trigger_level` — Minimum bytes required before a blocked read unblocks
+    pub fn new(buffer_size: usize, trigger_level: usize) -> Result<Self, FreeRtosError> {
+        let handle = unsafe { freertos_rs_stream_batching_buffer_create(buffer_size, trigger_level) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Sends data to the batching buffer. Returns the number of bytes actually sent.
+    pub fn send(&self, data: &[u8], ticks_to_wait: FreeRtosTickType) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_send(
+                self.handle,
+                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.len(),
+                ticks_to_wait,
+            )
+        }
+    }
+
+    /// Receives data from the batching buffer. Returns the number of bytes received.
+    pub fn receive(&self, buffer: &mut [u8], ticks_to_wait: FreeRtosTickType) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_receive(
+                self.handle,
+                buffer.as_mut_ptr() as FreeRtosVoidPtr,
+                buffer.len(),
+                ticks_to_wait,
+            )
+        }
+    }
+
+    /// Resets the batching buffer.
+    pub fn reset(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_reset(self.handle) == PD_PASS }
+    }
+
+    /// Returns `true` if the batching buffer is full.
+    pub fn is_full(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_is_full(self.handle) == PD_TRUE }
+    }
+
+    /// Returns `true` if the batching buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_is_empty(self.handle) == PD_TRUE }
+    }
+
+    /// Returns the number of bytes available to read.
+    pub fn bytes_available(&self) -> usize {
+        unsafe { freertos_rs_stream_buffer_bytes_available(self.handle) }
+    }
+
+    /// Returns the number of bytes that can be written.
+    pub fn spaces_available(&self) -> usize {
+        unsafe { freertos_rs_stream_buffer_spaces_available(self.handle) }
+    }
+
+    /// Sets the trigger level. Returns `true` on success.
+    pub fn set_trigger_level(&self, trigger_level: usize) -> bool {
+        unsafe { freertos_rs_stream_buffer_set_trigger_level(self.handle, trigger_level) == PD_TRUE }
+    }
+
+    /// Gets the length of the next message in the batching buffer.
+    pub fn next_message_length_bytes(&self) -> usize {
+        unsafe { freertos_rs_stream_buffer_next_message_length_bytes(self.handle) }
+    }
+
+    /// Sends data from an ISR. Returns bytes sent.
+    pub fn send_from_isr(
+        &self,
+        data: &[u8],
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_send_from_isr(
+                self.handle,
+                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.len(),
+                higher_priority_task_woken,
+            )
+        }
+    }
+
+    /// Receives data from an ISR. Returns bytes received.
+    pub fn receive_from_isr(
+        &self,
+        buffer: &mut [u8],
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> usize {
+        unsafe {
+            freertos_rs_stream_buffer_receive_from_isr(
+                self.handle,
+                buffer.as_mut_ptr() as FreeRtosVoidPtr,
+                buffer.len(),
+                higher_priority_task_woken,
+            )
+        }
+    }
+}
+
+impl Drop for BatchingBuffer {
+    fn drop(&mut self) {
+        unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+    }
+}
+
+unsafe impl Send for BatchingBuffer {}
+
+//===========================================================================
+// UNIT TESTS
+//===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stream_buffer_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<StreamBuffer>();
+        assert_send::<BatchingBuffer>();
+    }
+
+    #[test]
+    fn test_stream_buffer_type_constants() {
+        assert_eq!(SB_TYPE_STREAM_BUFFER, 0);
+        assert_eq!(SB_TYPE_MESSAGE_BUFFER, 1);
+        assert_eq!(SB_TYPE_STREAM_BATCHING_BUFFER, 2);
+    }
 }

@@ -1,14 +1,27 @@
-use crate::base::{
-    FreeRtosBaseType, FreeRtosTickType, FreeRtosUBaseType, FreeRtosVoidPtr
-};
+//! FreeRTOS co-routine module (deprecated).
+//!
+//! Provides FFI bindings for FreeRTOS co-routine APIs. Co-routines are a
+//! lightweight alternative to tasks with very low overhead, but they are
+//! **deprecated** in favor of tasks and should not be used in new designs.
+//!
+//! # Warning
+//!
+//! FreeRTOS considers co-routines deprecated. Use tasks instead for all
+//! new development.
 
-/// Co-routine handle type
+use crate::base::{FreeRtosBaseType, FreeRtosTickType, FreeRtosUBaseType, FreeRtosVoidPtr};
+
+//===========================================================================
+// TYPE DEFINITIONS
+//===========================================================================
+
+/// Co-routine handle type.
 pub type FreeRtosCoRoutineHandle = *const core::ffi::c_void;
 
-/// Co-routine function type
+/// Co-routine function signature.
 pub type FreeRtosCoRoutineFunction = unsafe extern "C" fn(
     handle: FreeRtosCoRoutineHandle,
-    index: FreeRtosUBaseType
+    index: FreeRtosUBaseType,
 );
 
 //===========================================================================
@@ -16,12 +29,12 @@ pub type FreeRtosCoRoutineFunction = unsafe extern "C" fn(
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for xCoRoutineCreate()
-    /// Creates a co-routine
+    /// Creates a co-routine.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
     pub fn freertos_rs_co_routine_create(
         co_routine_code: FreeRtosCoRoutineFunction,
         priority: FreeRtosUBaseType,
-        index: FreeRtosUBaseType
+        index: FreeRtosUBaseType,
     ) -> FreeRtosBaseType;
 }
 
@@ -30,16 +43,24 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for vCoRoutineSchedule()
-    /// Schedules co-routines
+    /// Schedules co-routines.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
     pub fn freertos_rs_co_routine_schedule();
-    
-    /// Wrapper for vCoRoutineAddToDelayedList()
-    /// Adds a co-routine to the delayed list
+
+    /// Adds a co-routine to the delayed list.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
     pub fn freertos_rs_co_routine_add_to_delayed_list(
         ticks_to_delay: FreeRtosTickType,
-        event_list: FreeRtosVoidPtr
+        event_list: FreeRtosVoidPtr,
     );
+
+    /// Removes a co-routine from an event list.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_co_routine_remove_from_event_list(event_list: FreeRtosVoidPtr) -> FreeRtosBaseType;
+
+    /// Resets the co-routine state (internal).
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_co_routine_reset_state();
 }
 
 //===========================================================================
@@ -47,50 +68,52 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Wrapper for crQUEUE_SEND()
-    /// Sends data to a queue from a co-routine
-    pub fn freertos_rs_co_routine_queue_send(
+    /// Sends data to a queue from a co-routine context.
+    ///
+    /// Wraps `xQueueCRSend()`. Note: this is only the queue operation half;
+    /// the full `crQUEUE_SEND` macro also includes co-routine state machine
+    /// transitions that cannot be replicated in Rust.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_queue_cr_send(
         queue_handle: FreeRtosVoidPtr,
         item_to_queue: FreeRtosVoidPtr,
         ticks_to_wait: FreeRtosTickType,
-        co_routine_handle: FreeRtosCoRoutineHandle
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for crQUEUE_RECEIVE()
-    /// Receives data from a queue in a co-routine
-    pub fn freertos_rs_co_routine_queue_receive(
+
+    /// Receives data from a queue in a co-routine context.
+    ///
+    /// Wraps `xQueueCRReceive()`. Note: this is only the queue operation half;
+    /// the full `crQUEUE_RECEIVE` macro also includes co-routine state machine
+    /// transitions that cannot be replicated in Rust.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_queue_cr_receive(
         queue_handle: FreeRtosVoidPtr,
         buffer: FreeRtosVoidPtr,
         ticks_to_wait: FreeRtosTickType,
-        co_routine_handle: FreeRtosCoRoutineHandle
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for crQUEUE_SEND_FROM_ISR()
-    /// Sends data to a queue from an ISR for co-routines
-    pub fn freertos_rs_co_routine_queue_send_from_isr(
+
+    /// Sends data to a queue from an ISR for co-routines.
+    ///
+    /// Wraps `xQueueCRSendFromISR()`.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_queue_cr_send_from_isr(
         queue_handle: FreeRtosVoidPtr,
         item_to_queue: FreeRtosVoidPtr,
-        co_routine_previously_woken: FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
-    
-    /// Wrapper for crQUEUE_RECEIVE_FROM_ISR()
-    /// Receives data from a queue from an ISR for co-routines
-    pub fn freertos_rs_co_routine_queue_receive_from_isr(
+
+    /// Receives data from a queue from an ISR for co-routines.
+    ///
+    /// Wraps `xQueueCRReceiveFromISR()`.
+    #[deprecated(note = "Co-routines are deprecated in FreeRTOS. Use tasks instead.")]
+    pub fn freertos_rs_queue_cr_receive_from_isr(
         queue_handle: FreeRtosVoidPtr,
         buffer: FreeRtosVoidPtr,
-        co_routine_woken: *mut FreeRtosBaseType
+        higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 }
 
-//===========================================================================
-// EXTERNAL C FUNCTION DECLARATIONS - CO-ROUTINE DELAY
-//===========================================================================
-
-unsafe extern "C" {
-    /// Wrapper for crDELAY()
-    /// Delays a co-routine
-    pub fn freertos_rs_co_routine_delay(
-        ticks_to_delay: FreeRtosTickType,
-        co_routine_handle: FreeRtosCoRoutineHandle
-    );
-}
+// Note: crDELAY() is a C macro that combines vCoRoutineAddToDelayedList() with
+// co-routine state machine transitions (crSET_STATE0). It cannot be wrapped as
+// a standalone function. Use freertos_rs_co_routine_add_to_delayed_list() directly
+// if you need the low-level delay functionality.

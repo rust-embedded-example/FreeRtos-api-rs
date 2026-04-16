@@ -1781,6 +1781,30 @@ BaseType_t freertos_rs_semaphore_get_static_buffer(SemaphoreHandle_t xSemaphore,
 }
 #endif
 
+#if (INCLUDE_xSemaphoreGetMutexHolder == 1)
+/**
+ * @brief Wrapper for xSemaphoreGetMutexHolder()
+ * Gets the task that currently holds a mutex
+ * @param xSemaphore Mutex handle
+ * @return TaskHandle_t - Handle of the task holding the mutex, or NULL
+ */
+TaskHandle_t freertos_rs_semaphore_get_mutex_holder(SemaphoreHandle_t xSemaphore)
+{
+    return xSemaphoreGetMutexHolder(xSemaphore);
+}
+
+/**
+ * @brief Wrapper for xSemaphoreGetMutexHolderFromISR()
+ * Gets the task that currently holds a mutex from ISR
+ * @param xSemaphore Mutex handle
+ * @return TaskHandle_t - Handle of the task holding the mutex, or NULL
+ */
+TaskHandle_t freertos_rs_semaphore_get_mutex_holder_from_isr(SemaphoreHandle_t xSemaphore)
+{
+    return xSemaphoreGetMutexHolderFromISR(xSemaphore);
+}
+#endif
+
 /*===========================================================================
  * EVENT GROUP FUNCTIONS
  *===========================================================================*/
@@ -2940,105 +2964,1014 @@ List_t* freertos_rs_list_list_item_container(ListItem_t *pxListItem)
 }
 
 /*===========================================================================
- * TIMER FUNCTIONS
+ * CO-ROUTINE FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_CO_ROUTINES == 1)
+
+/**
+ * @brief Wrapper for xCoRoutineCreate()
+ * Creates a co-routine
+ * @param pxCoRoutineCode Pointer to the co-routine function
+ * @param uxPriority Priority of the co-routine
+ * @param uxIndex Index of the co-routine
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_co_routine_create(crCOROUTINE_CODE pxCoRoutineCode, UBaseType_t uxPriority, UBaseType_t uxIndex)
+{
+    return xCoRoutineCreate(pxCoRoutineCode, uxPriority, uxIndex);
+}
+
+/**
+ * @brief Wrapper for vCoRoutineSchedule()
+ * Schedules co-routines
+ */
+void freertos_rs_co_routine_schedule(void)
+{
+    vCoRoutineSchedule();
+}
+
+/**
+ * @brief Wrapper for vCoRoutineAddToDelayedList()
+ * Adds a co-routine to the delayed list
+ * @param xTicksToDelay Number of ticks to delay
+ * @param pxEventList Pointer to event list (can be NULL)
+ */
+void freertos_rs_co_routine_add_to_delayed_list(TickType_t xTicksToDelay, List_t *pxEventList)
+{
+    vCoRoutineAddToDelayedList(xTicksToDelay, pxEventList);
+}
+
+/**
+ * @brief Wrapper for xCoRoutineRemoveFromEventList()
+ * Removes a co-routine from an event list
+ * @param pxEventList Pointer to the event list
+ * @return BaseType_t - pdTRUE if a co-routine was removed
+ */
+BaseType_t freertos_rs_co_routine_remove_from_event_list(const List_t *pxEventList)
+{
+    return xCoRoutineRemoveFromEventList(pxEventList);
+}
+
+/**
+ * @brief Wrapper for vCoRoutineResetState()
+ * Resets the co-routine state
+ */
+void freertos_rs_co_routine_reset_state(void)
+{
+    vCoRoutineResetState();
+}
+
+#endif /* configUSE_CO_ROUTINES */
+
+/*===========================================================================
+ * ADDITIONAL TASK FUNCTIONS
+ *===========================================================================*/
+
+/**
+ * @brief Wrapper for vTaskGenericNotifyGiveFromISR()
+ * Gives a notification from ISR (increment)
+ * @param xTaskToNotify Handle of task to notify
+ * @param uxIndexToNotify Index of notification
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ */
+void freertos_rs_task_generic_notify_give_from_isr(TaskHandle_t xTaskToNotify, UBaseType_t uxIndexToNotify, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    vTaskGenericNotifyGiveFromISR(xTaskToNotify, uxIndexToNotify, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for vTaskMissedYield()
+ * Indicates that a context switch is required
+ */
+void freertos_rs_task_missed_yield(void)
+{
+    vTaskMissedYield();
+}
+
+/**
+ * @brief Wrapper for xTaskPriorityInherit()
+ * Inherits priority from a task holding a mutex
+ * @param pxMutexHolder Handle of the mutex holder task
+ * @return BaseType_t - pdTRUE if priority was inherited
+ */
+BaseType_t freertos_rs_task_priority_inherit(TaskHandle_t const pxMutexHolder)
+{
+    return xTaskPriorityInherit(pxMutexHolder);
+}
+
+/**
+ * @brief Wrapper for xTaskPriorityDisinherit()
+ * Disinherits priority from a task releasing a mutex
+ * @param pxMutexHolder Handle of the mutex holder task
+ * @return BaseType_t - pdTRUE if a context switch is needed
+ */
+BaseType_t freertos_rs_task_priority_disinherit(TaskHandle_t const pxMutexHolder)
+{
+    return xTaskPriorityDisinherit(pxMutexHolder);
+}
+
+/**
+ * @brief Wrapper for vTaskPriorityDisinheritAfterTimeout()
+ * Disinherits priority after a timeout on a mutex
+ * @param pxMutexHolder Handle of the mutex holder task
+ * @param uxHighestPriorityWaitingTask Highest priority of waiting tasks
+ */
+void freertos_rs_task_priority_disinherit_after_timeout(TaskHandle_t const pxMutexHolder, UBaseType_t uxHighestPriorityWaitingTask)
+{
+    vTaskPriorityDisinheritAfterTimeout(pxMutexHolder, uxHighestPriorityWaitingTask);
+}
+
+/**
+ * @brief Wrapper for xTaskRemoveFromEventList()
+ * Removes a task from an event list
+ * @param pxEventList Pointer to the event list
+ * @return BaseType_t - pdTRUE if the removed task has higher priority
+ */
+BaseType_t freertos_rs_task_remove_from_event_list(const List_t * const pxEventList)
+{
+    return xTaskRemoveFromEventList(pxEventList);
+}
+
+/**
+ * @brief Wrapper for uxTaskResetEventItemValue()
+ * Resets the event item value of the current task
+ * @return UBaseType_t - Previous event item value
+ */
+UBaseType_t freertos_rs_task_reset_event_item_value(void)
+{
+    return uxTaskResetEventItemValue();
+}
+
+/**
+ * @brief Wrapper for pvTaskIncrementMutexHeldCount()
+ * Increments the mutex held count of the current task
+ * @return void* - Handle of the current task
+ */
+void* freertos_rs_task_increment_mutex_held_count(void)
+{
+    return pvTaskIncrementMutexHeldCount();
+}
+
+#if (configNUMBER_OF_CORES > 1)
+/**
+ * @brief Wrapper for xTaskGetCurrentTaskHandleForCore()
+ * Gets the handle of the currently running task on a specific core
+ * @param xCoreID Core ID
+ * @return TaskHandle_t - Current task handle for the specified core
+ */
+TaskHandle_t freertos_rs_task_get_current_task_handle_for_core(BaseType_t xCoreID)
+{
+    return xTaskGetCurrentTaskHandleForCore(xCoreID);
+}
+
+/**
+ * @brief Wrapper for xTaskGetIdleTaskHandleForCore()
+ * Gets the handle of the idle task for a specific core
+ * @param xCoreID Core ID
+ * @return TaskHandle_t - Idle task handle for the specified core
+ */
+TaskHandle_t freertos_rs_task_get_idle_task_handle_for_core(BaseType_t xCoreID)
+{
+    return xTaskGetIdleTaskHandleForCore(xCoreID);
+}
+#endif
+
+/**
+ * @brief Wrapper for uxTaskGetTaskNumber()
+ * Gets the task number
+ * @param xTask Handle of the task
+ * @return UBaseType_t - Task number
+ */
+UBaseType_t freertos_rs_task_get_task_number(TaskHandle_t xTask)
+{
+    return uxTaskGetTaskNumber(xTask);
+}
+
+/**
+ * @brief Wrapper for vTaskSetTaskNumber()
+ * Sets the task number
+ * @param xTask Handle of the task
+ * @param uxHandle Task number to set
+ */
+void freertos_rs_task_set_task_number(TaskHandle_t xTask, const UBaseType_t uxHandle)
+{
+    vTaskSetTaskNumber(xTask, uxHandle);
+}
+
+/**
+ * @brief Wrapper for eTaskConfirmSleepModeStatus()
+ * Checks if the system can enter sleep mode
+ * @return eSleepModeStatus - Sleep mode status
+ */
+BaseType_t freertos_rs_task_confirm_sleep_mode_status(void)
+{
+    return (BaseType_t)eTaskConfirmSleepModeStatus();
+}
+
+/*===========================================================================
+ * ADDITIONAL TIMER FUNCTIONS
  *===========================================================================*/
 
 #if (configUSE_TIMERS == 1)
 
+/**
+ * @brief Wrapper for vTimerSetReloadMode()
+ * Sets the reload mode of a timer
+ * @param xTimer Timer handle
+ * @param xAutoReload Auto-reload flag (pdTRUE for auto-reload, pdFALSE for one-shot)
+ */
+void freertos_rs_timer_set_reload_mode(TimerHandle_t xTimer, const BaseType_t xAutoReload)
+{
+    vTimerSetReloadMode(xTimer, xAutoReload);
+}
+
+/**
+ * @brief Wrapper for xTimerGetReloadMode()
+ * Gets the reload mode of a timer
+ * @param xTimer Timer handle
+ * @return BaseType_t - pdTRUE if auto-reload, pdFALSE if one-shot
+ */
+BaseType_t freertos_rs_timer_get_reload_mode(TimerHandle_t xTimer)
+{
+    return xTimerGetReloadMode(xTimer);
+}
+
+/**
+ * @brief Wrapper for uxTimerGetReloadMode()
+ * Gets the reload mode of a timer as UBaseType_t
+ * @param xTimer Timer handle
+ * @return UBaseType_t - 1 if auto-reload, 0 if one-shot
+ */
+UBaseType_t freertos_rs_ux_timer_get_reload_mode(TimerHandle_t xTimer)
+{
+    return uxTimerGetReloadMode(xTimer);
+}
+
+/**
+ * @brief Wrapper for xTimerCreateTimerTask()
+ * Creates the timer daemon task
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_timer_create_timer_task(void)
+{
+    return xTimerCreateTimerTask();
+}
+
+/**
+ * @brief Wrapper for vTimerResetState()
+ * Resets the timer state
+ */
+void freertos_rs_timer_reset_state(void)
+{
+    vTimerResetState();
+}
+
+#endif /* configUSE_TIMERS */
+
+/*===========================================================================
+ * ADDITIONAL QUEUE FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_QUEUE_SETS == 1)
+
 #if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
- * @brief Wrapper for xTimerCreate()
- * Creates a software timer
- * @param pcTimerName Name for the timer
- * @param xTimerPeriod Timer period in ticks
- * @param uxAutoReload Auto-reload flag
- * @param pvTimerID Timer ID
- * @param pxCallbackFunction Callback function
- * @return TimerHandle_t - Handle to the created timer
+ * @brief Wrapper for xQueueCreateSet()
+ * Creates a queue set with dynamic allocation
+ * @param uxEventQueueLength Maximum number of items in the set
+ * @return QueueSetHandle_t - Handle to the created queue set
  */
-TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
+QueueSetHandle_t freertos_rs_queue_create_set(const UBaseType_t uxEventQueueLength)
 {
-    return xTimerCreate(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction);
+    return xQueueCreateSet(uxEventQueueLength);
 }
 #endif
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
- * @brief Wrapper for xTimerCreateStatic()
- * Creates a software timer using statically allocated memory
- * @param pcTimerName Name for the timer
- * @param xTimerPeriod Timer period in ticks
- * @param uxAutoReload Auto-reload flag
- * @param pvTimerID Timer ID
- * @param pxCallbackFunction Callback function
- * @param pxTimerBuffer Timer buffer
- * @return TimerHandle_t - Handle to the created timer
+ * @brief Wrapper for xQueueCreateSetStatic()
+ * Creates a queue set using static allocation
+ * @param uxEventQueueLength Maximum number of items in the set
+ * @param pucQueueStorage Storage buffer for the queue set
+ * @param pxStaticQueue Static queue structure
+ * @return QueueSetHandle_t - Handle to the created queue set
  */
-TimerHandle_t freertos_rs_timer_create_static(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction, StaticTimer_t *pxTimerBuffer)
+QueueSetHandle_t freertos_rs_queue_create_set_static(const UBaseType_t uxEventQueueLength, uint8_t *pucQueueStorage, StaticQueue_t *pxStaticQueue)
 {
-    return xTimerCreateStatic(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction, pxTimerBuffer);
+    return xQueueCreateSetStatic(uxEventQueueLength, pucQueueStorage, pxStaticQueue);
 }
 #endif
 
 /**
- * @brief Wrapper for vTimerDelete()
- * Deletes a software timer
- * @param xTimer Timer handle
- * @param xTicksToWait Ticks to wait
+ * @brief Wrapper for xQueueAddToSet()
+ * Adds a queue or semaphore to a queue set
+ * @param xQueueOrSemaphore Handle of the queue or semaphore to add
+ * @param xQueueSet Handle of the queue set
  * @return BaseType_t - pdPASS if successful
  */
-BaseType_t freertos_rs_timer_delete(TimerHandle_t xTimer, TickType_t xTicksToWait)
+BaseType_t freertos_rs_queue_add_to_set(QueueSetMemberHandle_t xQueueOrSemaphore, QueueSetHandle_t xQueueSet)
 {
-    return xTimerDelete(xTimer, xTicksToWait);
+    return xQueueAddToSet(xQueueOrSemaphore, xQueueSet);
 }
 
 /**
- * @brief Wrapper for xTimerStart()
- * Starts a software timer
- * @param xTimer Timer handle
- * @param xTicksToWait Ticks to wait
+ * @brief Wrapper for xQueueRemoveFromSet()
+ * Removes a queue or semaphore from a queue set
+ * @param xQueueOrSemaphore Handle of the queue or semaphore to remove
+ * @param xQueueSet Handle of the queue set
  * @return BaseType_t - pdPASS if successful
  */
-BaseType_t freertos_rs_timer_start(TimerHandle_t xTimer, TickType_t xTicksToWait)
+BaseType_t freertos_rs_queue_remove_from_set(QueueSetMemberHandle_t xQueueOrSemaphore, QueueSetHandle_t xQueueSet)
 {
-    return xTimerStart(xTimer, xTicksToWait);
+    return xQueueRemoveFromSet(xQueueOrSemaphore, xQueueSet);
 }
 
 /**
- * @brief Wrapper for xTimerStop()
- * Stops a software timer
- * @param xTimer Timer handle
+ * @brief Wrapper for xQueueSelectFromSet()
+ * Selects from a queue set (blocks until a member is ready)
+ * @param xQueueSet Handle of the queue set
  * @param xTicksToWait Ticks to wait
- * @return BaseType_t - pdPASS if successful
+ * @return QueueSetMemberHandle_t - Handle to the queue/semaphore that contains data
  */
-BaseType_t freertos_rs_timer_stop(TimerHandle_t xTimer, TickType_t xTicksToWait)
+QueueSetMemberHandle_t freertos_rs_queue_select_from_set(QueueSetHandle_t xQueueSet, TickType_t xTicksToWait)
 {
-    return xTimerStop(xTimer, xTicksToWait);
+    return xQueueSelectFromSet(xQueueSet, xTicksToWait);
 }
 
 /**
- * @brief Wrapper for xTimerReset()
- * Resets a software timer
- * @param xTimer Timer handle
+ * @brief Wrapper for xQueueSelectFromSetFromISR()
+ * Selects from a queue set from an ISR
+ * @param xQueueSet Queue set handle
+ * @return QueueSetMemberHandle_t - Handle to the queue/semaphore that contains data
+ */
+QueueSetMemberHandle_t freertos_rs_queue_select_from_set_from_isr(QueueSetHandle_t xQueueSet)
+{
+    return xQueueSelectFromSetFromISR(xQueueSet);
+}
+
+#endif /* configUSE_QUEUE_SETS */
+
+/**
+ * @brief Wrapper for xQueueSemaphoreTake()
+ * Takes a semaphore (binary or counting)
+ * @param xQueue Queue/semaphore handle
  * @param xTicksToWait Ticks to wait
  * @return BaseType_t - pdPASS if successful
  */
-BaseType_t freertos_rs_timer_reset(TimerHandle_t xTimer, TickType_t xTicksToWait)
+BaseType_t freertos_rs_queue_semaphore_take(QueueHandle_t xQueue, TickType_t xTicksToWait)
 {
-    return xTimerReset(xTimer, xTicksToWait);
+    return xQueueSemaphoreTake(xQueue, xTicksToWait);
+}
+
+#if (configUSE_RECURSIVE_MUTEXES == 1)
+/**
+ * @brief Wrapper for xQueueTakeMutexRecursive()
+ * Takes a recursive mutex
+ * @param xMutex Mutex handle
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_queue_take_mutex_recursive(QueueHandle_t xMutex, TickType_t xTicksToWait)
+{
+    return xQueueTakeMutexRecursive(xMutex, xTicksToWait);
 }
 
 /**
- * @brief Wrapper for xTimerChangePeriod()
- * Changes the period of a software timer
- * @param xTimer Timer handle
- * @param xNewPeriod New period in ticks
- * @param xTicksToWait Ticks to wait
+ * @brief Wrapper for xQueueGiveMutexRecursive()
+ * Gives a recursive mutex
+ * @param xMutex Mutex handle
  * @return BaseType_t - pdPASS if successful
  */
-BaseType_t freertos_rs_timer_change_period(TimerHandle_t xTimer, TickType_t xNewPeriod, TickType_t xTicksToWait)
+BaseType_t freertos_rs_queue_give_mutex_recursive(QueueHandle_t xMutex)
 {
-    return xTimerChangePeriod(xTimer, xNewPeriod, xTicksToWait);
+    return xQueueGiveMutexRecursive(xMutex);
+}
+#endif
+
+/**
+ * @brief Wrapper for xQueueGenericReset()
+ * Resets a queue to its empty state
+ * @param xQueue Queue handle
+ * @param xNewQueue pdTRUE to create a new queue, pdFALSE to reset existing
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_queue_generic_reset(QueueHandle_t xQueue, BaseType_t xNewQueue)
+{
+    return xQueueGenericReset(xQueue, xNewQueue);
 }
 
-#endif /* configUSE_TIMERS */
+/*===========================================================================
+ * ADDITIONAL STREAM BUFFER FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+
+/**
+ * @brief Wrapper for xStreamBufferResetFromISR()
+ * Resets a stream buffer from an ISR
+ * @param xStreamBuffer Stream buffer handle
+ * @return BaseType_t - pdPASS if successful
+ */
+BaseType_t freertos_rs_stream_buffer_reset_from_isr(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferResetFromISR(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferSendCompletedFromISR()
+ * Called from ISR when a send operation completes
+ * @param xStreamBuffer Stream buffer handle
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdTRUE if a task was woken
+ */
+BaseType_t freertos_rs_stream_buffer_send_completed_from_isr(StreamBufferHandle_t xStreamBuffer, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xStreamBufferSendCompletedFromISR(xStreamBuffer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferReceiveCompletedFromISR()
+ * Called from ISR when a receive operation completes
+ * @param xStreamBuffer Stream buffer handle
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdTRUE if a task was woken
+ */
+BaseType_t freertos_rs_stream_buffer_receive_completed_from_isr(StreamBufferHandle_t xStreamBuffer, BaseType_t *pxHigherPriorityTaskWoken)
+{
+    return xStreamBufferReceiveCompletedFromISR(xStreamBuffer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferNextMessageLengthBytes()
+ * Gets the length of the next message in a stream buffer used for batching
+ * @param xStreamBuffer Stream buffer handle
+ * @return size_t - Length of the next message in bytes
+ */
+size_t freertos_rs_stream_buffer_next_message_length_bytes(StreamBufferHandle_t xStreamBuffer)
+{
+    return xStreamBufferNextMessageLengthBytes(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for uxStreamBufferGetStreamBufferNotificationIndex()
+ * Gets the notification index used by a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @return UBaseType_t - Notification index
+ */
+UBaseType_t freertos_rs_stream_buffer_get_notification_index(StreamBufferHandle_t xStreamBuffer)
+{
+    return uxStreamBufferGetStreamBufferNotificationIndex(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for vStreamBufferSetStreamBufferNotificationIndex()
+ * Sets the notification index for a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param uxNotificationIndex Notification index to set
+ */
+void freertos_rs_stream_buffer_set_notification_index(StreamBufferHandle_t xStreamBuffer, UBaseType_t uxNotificationIndex)
+{
+    vStreamBufferSetStreamBufferNotificationIndex(xStreamBuffer, uxNotificationIndex);
+}
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for xStreamBufferGetStaticBuffers()
+ * Gets the static buffers associated with a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @param ppucStreamBufferStorageArea Pointer to receive storage area pointer
+ * @param ppxStaticStreamBuffer Pointer to receive static stream buffer pointer
+ * @return BaseType_t - pdTRUE if successful
+ */
+BaseType_t freertos_rs_stream_buffer_get_static_buffers(StreamBufferHandle_t xStreamBuffer, uint8_t **ppucStreamBufferStorageArea, StaticStreamBuffer_t **ppxStaticStreamBuffer)
+{
+    return xStreamBufferGetStaticBuffers(xStreamBuffer, ppucStreamBufferStorageArea, ppxStaticStreamBuffer);
+}
+#endif
+
+#if (configUSE_TRACE_FACILITY == 1)
+/**
+ * @brief Wrapper for vStreamBufferSetStreamBufferNumber()
+ * Sets the stream buffer number for tracing
+ * @param xStreamBuffer Stream buffer handle
+ * @param uxStreamBufferNumber Stream buffer number to set
+ */
+void freertos_rs_stream_buffer_set_stream_buffer_number(StreamBufferHandle_t xStreamBuffer, UBaseType_t uxStreamBufferNumber)
+{
+    vStreamBufferSetStreamBufferNumber(xStreamBuffer, uxStreamBufferNumber);
+}
+
+/**
+ * @brief Wrapper for uxStreamBufferGetStreamBufferNumber()
+ * Gets the stream buffer number for tracing
+ * @param xStreamBuffer Stream buffer handle
+ * @return UBaseType_t - Stream buffer number
+ */
+UBaseType_t freertos_rs_stream_buffer_get_stream_buffer_number(StreamBufferHandle_t xStreamBuffer)
+{
+    return uxStreamBufferGetStreamBufferNumber(xStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for ucStreamBufferGetStreamBufferType()
+ * Gets the type of a stream buffer
+ * @param xStreamBuffer Stream buffer handle
+ * @return uint8_t - Stream buffer type
+ */
+uint8_t freertos_rs_stream_buffer_get_stream_buffer_type(StreamBufferHandle_t xStreamBuffer)
+{
+    return ucStreamBufferGetStreamBufferType(xStreamBuffer);
+}
+#endif
+
+#endif /* configUSE_STREAM_BUFFERS */
+
+/*===========================================================================
+ * ADDITIONAL PORTABLE/MEMORY FUNCTIONS
+ *===========================================================================*/
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for pvPortCalloc()
+ * Allocates and zeros memory from the FreeRTOS heap
+ * @param xNum Number of elements
+ * @param xSize Size of each element
+ * @return void* - Pointer to allocated memory, or NULL if allocation failed
+ */
+void* freertos_rs_port_calloc(size_t xNum, size_t xSize)
+{
+    return pvPortCalloc(xNum, xSize);
+}
+#endif
+
+/**
+ * @brief Wrapper for vPortInitialiseBlocks()
+ * Initializes memory blocks (heap_3 only)
+ */
+void freertos_rs_port_initialise_blocks(void)
+{
+    vPortInitialiseBlocks();
+}
+
+/**
+ * @brief Wrapper for xPortResetHeapMinimumEverFreeHeapSize()
+ * Resets the minimum ever free heap size counter
+ */
+void freertos_rs_port_reset_heap_minimum_ever_free_heap_size(void)
+{
+    xPortResetHeapMinimumEverFreeHeapSize();
+}
+
+#if (configUSE_HEAP_STRUCT_SELECTION == 1)
+/**
+ * @brief Wrapper for vPortGetHeapStats()
+ * Gets heap statistics
+ * @param pxHeapStats Pointer to heap statistics structure to fill
+ */
+void freertos_rs_port_get_heap_stats(void *pxHeapStats)
+{
+    vPortGetHeapStats((HeapStats_t *)pxHeapStats);
+}
+#endif
+
+#if (configAPPLICATION_ALLOCATED_HEAP == 1)
+/**
+ * @brief Wrapper for vPortDefineHeapRegions()
+ * Defines heap regions (heap_5 only)
+ * @param pxHeapRegions Pointer to array of heap regions (terminated with NULL entry)
+ */
+void freertos_rs_port_define_heap_regions(const void * const pxHeapRegions)
+{
+    vPortDefineHeapRegions((const HeapRegion_t * const)pxHeapRegions);
+}
+#endif
+
+/*===========================================================================
+ * MISSING API ADDITIONS - GAP ANALYSIS COMPLETION
+ *===========================================================================*/
+
+/*===========================================================================
+ * QUEUE - CO-ROUTINE QUEUE OPERATIONS
+ *===========================================================================*/
+
+#if (configUSE_CO_ROUTINES == 1)
+/**
+ * @brief Wrapper for xQueueCRSend()
+ * Sends an item to a queue from a co-routine
+ * @param xQueue Queue handle
+ * @param pvItemToQueue Pointer to item to send
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS or errQUEUE_FULL
+ */
+BaseType_t freertos_rs_queue_cr_send(QueueHandle_t xQueue, const void * const pvItemToQueue, TickType_t xTicksToWait)
+{
+    return xQueueCRSend(xQueue, pvItemToQueue, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xQueueCRReceive()
+ * Receives an item from a queue in a co-routine
+ * @param xQueue Queue handle
+ * @param pvBuffer Pointer to buffer for received item
+ * @param xTicksToWait Ticks to wait
+ * @return BaseType_t - pdPASS or errQUEUE_EMPTY
+ */
+BaseType_t freertos_rs_queue_cr_receive(QueueHandle_t xQueue, void * const pvBuffer, TickType_t xTicksToWait)
+{
+    return xQueueCRReceive(xQueue, pvBuffer, xTicksToWait);
+}
+
+/**
+ * @brief Wrapper for xQueueCRSendFromISR()
+ * Sends an item to a queue from a co-routine ISR
+ * @param xQueue Queue handle
+ * @param pvItemToQueue Pointer to item to send
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS or errQUEUE_FULL
+ */
+BaseType_t freertos_rs_queue_cr_send_from_isr(QueueHandle_t xQueue, const void * const pvItemToQueue, BaseType_t * const pxHigherPriorityTaskWoken)
+{
+    return xQueueCRSendFromISR(xQueue, pvItemToQueue, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xQueueCRReceiveFromISR()
+ * Receives an item from a queue in a co-routine ISR
+ * @param xQueue Queue handle
+ * @param pvBuffer Pointer to buffer for received item
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdPASS or errQUEUE_EMPTY
+ */
+BaseType_t freertos_rs_queue_cr_receive_from_isr(QueueHandle_t xQueue, void * const pvBuffer, BaseType_t * const pxHigherPriorityTaskWoken)
+{
+    return xQueueCRReceiveFromISR(xQueue, pvBuffer, pxHigherPriorityTaskWoken);
+}
+#endif /* configUSE_CO_ROUTINES */
+
+/*===========================================================================
+ * QUEUE - RESTRICTED WAIT
+ *===========================================================================*/
+
+/**
+ * @brief Wrapper for vQueueWaitForMessageRestricted()
+ * Waits for a message with restricted permissions (MPU)
+ * @param xQueue Queue handle
+ * @param xTicksToWait Ticks to wait
+ * @param xWaitIndefinitely Whether to wait indefinitely
+ */
+void freertos_rs_queue_wait_for_message_restricted(QueueHandle_t xQueue, TickType_t xTicksToWait, BaseType_t xWaitIndefinitely)
+{
+    vQueueWaitForMessageRestricted(xQueue, xTicksToWait, xWaitIndefinitely);
+}
+
+/*===========================================================================
+ * EVENT GROUP - CALLBACK FUNCTIONS
+ *===========================================================================*/
+
+#if (configUSE_EVENT_GROUPS == 1)
+/**
+ * @brief Wrapper for vEventGroupSetBitsCallback()
+ * Timer callback to set bits in an event group
+ * @param pvEventGroup Event group handle (cast to void*)
+ * @param ulBitsToSet Bits to set
+ */
+void freertos_rs_event_group_set_bits_callback(void *pvEventGroup, uint32_t ulBitsToSet)
+{
+    vEventGroupSetBitsCallback((EventGroupHandle_t)pvEventGroup, ulBitsToSet);
+}
+
+/**
+ * @brief Wrapper for vEventGroupClearBitsCallback()
+ * Timer callback to clear bits in an event group
+ * @param pvEventGroup Event group handle (cast to void*)
+ * @param ulBitsToClear Bits to clear
+ */
+void freertos_rs_event_group_clear_bits_callback(void *pvEventGroup, uint32_t ulBitsToClear)
+{
+    vEventGroupClearBitsCallback((EventGroupHandle_t)pvEventGroup, ulBitsToClear);
+}
+#endif /* configUSE_EVENT_GROUPS */
+
+/*===========================================================================
+ * STREAM BUFFER - WITH CALLBACK CREATION
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+/**
+ * @brief Wrapper for xStreamBufferCreateWithCallback()
+ * Creates a stream buffer with send/receive callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_buffer_create_with_callback(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xStreamBufferCreateWithCallback(xBufferSizeBytes, xTriggerLevelBytes,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+
+/**
+ * @brief Wrapper for xStreamBufferCreateStaticWithCallback()
+ * Creates a static stream buffer with send/receive callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @param pucStreamBufferStorageArea Storage area
+ * @param pxStaticStreamBuffer Static buffer structure
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_buffer_create_static_with_callback(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes,
+    uint8_t *pucStreamBufferStorageArea,
+    StaticStreamBuffer_t *pxStaticStreamBuffer,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xStreamBufferCreateStaticWithCallback(xBufferSizeBytes, xTriggerLevelBytes,
+        pucStreamBufferStorageArea, pxStaticStreamBuffer,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+
+/*===========================================================================
+ * STREAM BATCHING BUFFER
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+/**
+ * @brief Wrapper for xStreamBatchingBufferCreate()
+ * Creates a batching stream buffer
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_batching_buffer_create(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes)
+{
+    return xStreamBatchingBufferCreate(xBufferSizeBytes, xTriggerLevelBytes);
+}
+
+/**
+ * @brief Wrapper for xStreamBatchingBufferCreateWithCallback()
+ * Creates a batching stream buffer with callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_with_callback(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xStreamBatchingBufferCreateWithCallback(xBufferSizeBytes, xTriggerLevelBytes,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+
+/**
+ * @brief Wrapper for xStreamBatchingBufferCreateStatic()
+ * Creates a static batching stream buffer
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @param pucStreamBufferStorageArea Storage area
+ * @param pxStaticStreamBuffer Static buffer structure
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_static(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes,
+    uint8_t *pucStreamBufferStorageArea,
+    StaticStreamBuffer_t *pxStaticStreamBuffer)
+{
+    return xStreamBatchingBufferCreateStatic(xBufferSizeBytes, xTriggerLevelBytes,
+        pucStreamBufferStorageArea, pxStaticStreamBuffer);
+}
+
+/**
+ * @brief Wrapper for xStreamBatchingBufferCreateStaticWithCallback()
+ * Creates a static batching stream buffer with callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param xTriggerLevelBytes Trigger level
+ * @param pucStreamBufferStorageArea Storage area
+ * @param pxStaticStreamBuffer Static buffer structure
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return StreamBufferHandle_t - Handle or NULL
+ */
+StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_static_with_callback(
+    size_t xBufferSizeBytes,
+    size_t xTriggerLevelBytes,
+    uint8_t *pucStreamBufferStorageArea,
+    StaticStreamBuffer_t *pxStaticStreamBuffer,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xStreamBatchingBufferCreateStaticWithCallback(xBufferSizeBytes, xTriggerLevelBytes,
+        pucStreamBufferStorageArea, pxStaticStreamBuffer,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+#endif /* configUSE_STREAM_BUFFERS */
+#endif /* configUSE_STREAM_BUFFERS */
+
+/*===========================================================================
+ * MESSAGE BUFFER - WITH CALLBACK + ISR RESET
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+/**
+ * @brief Wrapper for xMessageBufferCreateWithCallback()
+ * Creates a message buffer with send/receive callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return MessageBufferHandle_t - Handle or NULL
+ */
+MessageBufferHandle_t freertos_rs_message_buffer_create_with_callback(
+    size_t xBufferSizeBytes,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xMessageBufferCreateWithCallback(xBufferSizeBytes,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferCreateStaticWithCallback()
+ * Creates a static message buffer with send/receive callbacks
+ * @param xBufferSizeBytes Buffer size
+ * @param pucStreamBufferStorageArea Storage area
+ * @param pxStaticStreamBuffer Static buffer structure
+ * @param pxSendCompletedCallback Send completion callback
+ * @param pxReceiveCompletedCallback Receive completion callback
+ * @return MessageBufferHandle_t - Handle or NULL
+ */
+MessageBufferHandle_t freertos_rs_message_buffer_create_static_with_callback(
+    size_t xBufferSizeBytes,
+    uint8_t *pucStreamBufferStorageArea,
+    StaticStreamBuffer_t *pxStaticStreamBuffer,
+    StreamBufferCallbackFunction_t pxSendCompletedCallback,
+    StreamBufferCallbackFunction_t pxReceiveCompletedCallback)
+{
+    return xMessageBufferCreateStaticWithCallback(xBufferSizeBytes,
+        pucStreamBufferStorageArea, pxStaticStreamBuffer,
+        pxSendCompletedCallback, pxReceiveCompletedCallback);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferResetFromISR()
+ * Resets a message buffer from an ISR
+ * @param xMessageBuffer Message buffer handle
+ * @return BaseType_t - pdPASS or errINVALID_BUFFER
+ */
+BaseType_t freertos_rs_message_buffer_reset_from_isr(MessageBufferHandle_t xMessageBuffer)
+{
+    return xMessageBufferResetFromISR(xMessageBuffer);
+}
+#endif /* configUSE_STREAM_BUFFERS */
+
+/*===========================================================================
+ * PORTABLE - YIELD
+ *===========================================================================*/
+
+/**
+ * @brief Wrapper for portYIELD()
+ * Yields the current task, requesting a context switch
+ */
+void freertos_rs_port_yield(void)
+{
+    portYIELD();
+}
+
+/*===========================================================================
+ * TASK - IDLE TASK MEMORY (STATIC ALLOCATION)
+ *===========================================================================*/
+
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+/**
+ * @brief Wrapper for vTaskGetIdleTaskMemory()
+ * Gets the static memory for the idle task
+ * @param ppxIdleTaskTCBBuffer Pointer to TCB buffer pointer
+ * @param ppxIdleTaskStackBuffer Pointer to stack buffer pointer
+ * @param pulIdleTaskStackSize Pointer to stack size
+ */
+void freertos_rs_task_get_idle_task_memory(
+    StaticTask_t **ppxIdleTaskTCBBuffer,
+    StackType_t **ppxIdleTaskStackBuffer,
+    uint32_t *pulIdleTaskStackSize)
+{
+    vTaskGetIdleTaskMemory(ppxIdleTaskTCBBuffer, ppxIdleTaskStackBuffer, pulIdleTaskStackSize);
+}
+
+/**
+ * @brief Wrapper for vTaskGetPassiveIdleTaskMemory()
+ * Gets the static memory for the passive idle task (SMP)
+ * @param ppxIdleTaskTCBBuffer Pointer to TCB buffer pointer
+ * @param ppxIdleTaskStackBuffer Pointer to stack buffer pointer
+ * @param pulIdleTaskStackSize Pointer to stack size
+ * @param xCoreID Core ID for SMP
+ */
+void freertos_rs_task_get_passive_idle_task_memory(
+    StaticTask_t **ppxIdleTaskTCBBuffer,
+    StackType_t **ppxIdleTaskStackBuffer,
+    uint32_t *pulIdleTaskStackSize,
+    BaseType_t xCoreID)
+{
+    vTaskGetPassiveIdleTaskMemory(ppxIdleTaskTCBBuffer, ppxIdleTaskStackBuffer, pulIdleTaskStackSize, xCoreID);
+}
+#endif /* configSUPPORT_STATIC_ALLOCATION */
+
+/*===========================================================================
+ * TASK - IDLE RUN TIME STATS
+ *===========================================================================*/
+
+#if (configGENERATE_RUN_TIME_STATS == 1)
+/**
+ * @brief Wrapper for ulTaskGetIdleRunTimeCounter()
+ * Returns the run time counter of the idle task
+ * @return configRUN_TIME_COUNTER_TYPE - idle task run time counter
+ */
+uint32_t freertos_rs_task_get_idle_run_time_counter(void)
+{
+    return (uint32_t)ulTaskGetIdleRunTimeCounter();
+}
+
+/**
+ * @brief Wrapper for ulTaskGetIdleRunTimePercent()
+ * Returns the percentage of CPU time used by the idle task
+ * @return configRUN_TIME_COUNTER_TYPE - idle task run time percentage
+ */
+uint32_t freertos_rs_task_get_idle_run_time_percent(void)
+{
+    return (uint32_t)ulTaskGetIdleRunTimePercent();
+}
+#endif /* configGENERATE_RUN_TIME_STATS */
+
+/*===========================================================================
+ * TASK - MPU RESTRICTED AFFINITY SET
+ *===========================================================================*/
+
+#if (portUSING_MPU_WRAPPERS == 1)
+/**
+ * @brief Wrapper for xTaskCreateRestrictedAffinitySet()
+ * Creates a restricted task with core affinity
+ * @param pxTaskDefinition Task parameters
+ * @param uxCoreAffinityMask Core affinity mask
+ * @param pxCreatedTask Handle of created task
+ * @return BaseType_t - pdPASS or errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY
+ */
+BaseType_t freertos_rs_task_create_restricted_affinity_set(
+    const void * const pxTaskDefinition,
+    UBaseType_t uxCoreAffinityMask,
+    TaskHandle_t * const pxCreatedTask)
+{
+    return xTaskCreateRestrictedAffinitySet(
+        (const TaskParameters_t * const)pxTaskDefinition,
+        uxCoreAffinityMask,
+        pxCreatedTask);
+}
+#endif /* portUSING_MPU_WRAPPERS */
+
+/*===========================================================================
+ * MESSAGE BUFFER - ISR COMPLETED CALLBACKS
+ *===========================================================================*/
+
+#if (configUSE_STREAM_BUFFERS == 1)
+/**
+ * @brief Wrapper for xMessageBufferSendCompletedFromISR()
+ * Called from ISR after sending to a message buffer from non-FreeRTOS code
+ * @param xMessageBuffer Message buffer handle
+ * @param pxHigherPriorityTaskWoken Higher priority task woken flag
+ * @return BaseType_t - pdTRUE if a context switch is needed
+ */
+BaseType_t freertos_rs_message_buffer_send_completed_from_isr(
+    MessageBufferHandle_t xMessageBuffer,
+    BaseType_t * const pxHigherPriorityTaskWoken)
+{
+    return xMessageBufferSendCompletedFromISR(xMessageBuffer, pxHigherPriorityTaskWoken);
+}
+
+/**
+ * @brief Wrapper for xMessageBufferReceiveCompletedFromISR()
+ * Called from ISR after receiving from a message buffer from non-FreeRTOS code
+ * @param xMessageBuffer Message buffer handle
+ * @param pxHigherPriorityTaskWoken Higher priority task woken flag
+ * @return BaseType_t - pdTRUE if a context switch is needed
+ */
+BaseType_t freertos_rs_message_buffer_receive_completed_from_isr(
+    MessageBufferHandle_t xMessageBuffer,
+    BaseType_t * const pxHigherPriorityTaskWoken)
+{
+    return xMessageBufferReceiveCompletedFromISR(xMessageBuffer, pxHigherPriorityTaskWoken);
+}
+#endif /* configUSE_STREAM_BUFFERS */
