@@ -420,8 +420,8 @@ impl<T> Queue<T> {
     /// Receives an item from the queue.
     ///
     /// Returns `Some(item)` on success, `None` if the receive timed out.
-    /// **Note:** `T` must be `Copy` or you must ensure the item is fully
-    /// initialized by FreeRTOS before use.
+    /// FreeRTOS copies `size_of::<T>()` bytes via memcpy, so the item is
+    /// fully initialized on success. Ownership transfers from the sender.
     pub fn receive(&self, ticks_to_wait: FreeRtosTickType) -> Option<T> {
         let mut item = core::mem::MaybeUninit::<T>::uninit();
         let result = unsafe {

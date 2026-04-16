@@ -327,8 +327,12 @@ pub enum FreeRtosTimerCommand {
 /// Task state enumeration.
 ///
 /// Represents the current state of a FreeRTOS task.
+///
+/// **Note:** Uses `repr(u32)` to match C `enum eTaskState` which is `int`-sized
+/// (4 bytes on 32-bit targets). Using `u8` would cause struct layout mismatches
+/// when embedded in `FreeRtosTaskStatusFfi`.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u8)]
+#[repr(u32)]
 pub enum FreeRtosTaskState {
     /// The task is currently running (only valid for the calling task).
     Running = 0,
@@ -385,6 +389,22 @@ pub enum FreeRtosError {
 /// FreeRTOS `TaskStatus_t` — detailed task status information.
 ///
 /// Filled by `uxTaskGetSystemState()` and `vTaskGetInfo()`.
+///
+/// **Layout matches C `TaskStatus_t` on 32-bit targets** (repr(C)):
+///
+/// ```text
+/// offset  size  field
+/// 0x00    4     handle         (TaskHandle_t = pointer)
+/// 0x04    4     task_name      (const char *)
+/// 0x08    4     task_number    (UBaseType_t)
+/// 0x0C    4     task_state     (eTaskState = enum int)
+/// 0x10    4     current_priority (UBaseType_t)
+/// 0x14    4     base_priority  (UBaseType_t)
+/// 0x18    4     run_time_counter (configRUN_TIME_COUNTER_TYPE)
+/// 0x1C    4     stack_base     (StackType_t *)
+/// 0x20    2     stack_high_water_mark (configSTACK_DEPTH_TYPE)
+/// 0x22    2     (padding)
+/// ```
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct FreeRtosTaskStatusFfi {
@@ -401,11 +421,11 @@ pub struct FreeRtosTaskStatusFfi {
     /// Base priority of the task (before any priority inheritance).
     pub base_priority: FreeRtosUBaseType,
     /// Total run time consumed by this task.
-    pub run_time_counter: FreeRtosUnsignedLong,
+    pub run_time_counter: FreeRtosRunTimeCounterType,
     /// Pointer to the task's stack base address.
     pub stack_base: FreeRtosCharPtr,
     /// Minimum remaining stack space (high water mark) in words.
-    pub stack_high_water_mark: FreeRtosUnsignedShort,
+    pub stack_high_water_mark: FreeRtosConfigStackDepthType,
 }
 
 //===========================================================================
@@ -438,11 +458,11 @@ const _: () = assert!(FreeRtosQueueSendPosition::SendToBack as u32 == 0);
 const _: () = assert!(FreeRtosQueueSendPosition::SendToFront as u32 == 1);
 const _: () = assert!(FreeRtosQueueSendPosition::Overwrite as u32 == 2);
 
-const _: () = assert!(FreeRtosTaskState::Running as u8 == 0);
-const _: () = assert!(FreeRtosTaskState::Ready as u8 == 1);
-const _: () = assert!(FreeRtosTaskState::Blocked as u8 == 2);
-const _: () = assert!(FreeRtosTaskState::Suspended as u8 == 3);
-const _: () = assert!(FreeRtosTaskState::Deleted as u8 == 4);
+const _: () = assert!(FreeRtosTaskState::Running as u32 == 0);
+const _: () = assert!(FreeRtosTaskState::Ready as u32 == 1);
+const _: () = assert!(FreeRtosTaskState::Blocked as u32 == 2);
+const _: () = assert!(FreeRtosTaskState::Suspended as u32 == 3);
+const _: () = assert!(FreeRtosTaskState::Deleted as u32 == 4);
 
 const _: () = assert!(FreeRtosTimerCommand::Start as u32 == 0);
 const _: () = assert!(FreeRtosTimerCommand::Stop as u32 == 1);
@@ -463,6 +483,16 @@ const _: () = assert!(TSK_NO_AFFINITY == 0xFFFFFFFF);
 // Struct layouts
 const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == core::mem::size_of::<FreeRtosBaseType>() + core::mem::size_of::<FreeRtosTickType>());
 const _: () = assert!(core::mem::align_of::<FreeRtosTimeOut>() >= 4);
-const _: () = assert!(core::mem::size_of::<FreeRtosTaskStatusFfi>() > 0);
 const _: () = assert!(core::mem::size_of::<FreeRtosHeapStats>() == 7 * core::mem::size_of::<usize>());
+
+// FreeRtosTaskStatusFfi must match C TaskStatus_t on 32-bit targets:
+// 7 pointers/u32s + 1 u16 + padding = 7*4 + 2 + 2(padding) = 32 bytes on 32-bit
+// On host (64-bit): pointers are 8 bytes, so size differs — use a range check.
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskStatusFfi>() >= 7 * 4 + 2);
+
+// FreeRtosTaskState is repr(u32) — 4 bytes, matching C enum eTaskState (int)
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskState>() == 4);
+
+// NotifyAction is repr(C) — matches C enum eNotifyAction (int)
+const _: () = assert!(core::mem::size_of::<FreeRtosNotifyAction>() == 4);
 

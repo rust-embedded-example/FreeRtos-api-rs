@@ -53,7 +53,10 @@ unsafe extern "C" {
 
 unsafe extern "C" {
     /// Atomically compares `*destination == expected_value`, and if so, sets
-    /// `*destination = new_value`. Returns the previous value of `*destination`.
+    /// `*destination = new_value`.
+    ///
+    /// **Returns `1` on success, `0` on failure** (ATOMIC_COMPARE_AND_SWAP_SUCCESS/FAILURE).
+    /// This is NOT the previous value — it is a boolean status code.
     pub fn freertos_rs_atomic_compare_and_swap_u32(
         destination: *mut u32,
         new_value: u32,
@@ -66,12 +69,14 @@ unsafe extern "C" {
         new_value: *mut core::ffi::c_void,
     ) -> *mut core::ffi::c_void;
 
-    /// Atomic compare-and-swap for pointers. Returns the previous value.
+    /// Atomic compare-and-swap for pointers.
+    ///
+    /// **Returns `1` on success, `0` on failure** (ATOMIC_COMPARE_AND_SWAP_SUCCESS/FAILURE).
     pub fn freertos_rs_atomic_compare_and_swap_pointers_p32(
         destination: *mut *mut core::ffi::c_void,
         new_value: *mut core::ffi::c_void,
         expected_value: *mut core::ffi::c_void,
-    ) -> *mut core::ffi::c_void;
+    ) -> u32;
 }
 
 //===========================================================================
@@ -114,21 +119,11 @@ impl FreeRtosAtomicU32 {
 
     /// Returns the current value atomically.
     ///
-    /// Uses a no-op CAS (compare with sentinel, write back same value) to
-    /// perform an atomic read. This is necessary because FreeRTOS V11.1.0
-    /// does not provide `Atomic_Load_u32`.
+    /// Uses a volatile read. On ARM Cortex-M7, aligned 32-bit reads are
+    /// naturally atomic for single-core systems (FreeRTOS atomics use
+    /// interrupt masking or ldrex/strex).
     pub fn load(&self) -> u32 {
-        // No-op CAS: read atomically and write back the same value.
-        // We use 0 as expected — since we always write back the value we read,
-        // this is equivalent to an atomic load on any CAS-capable target.
-        loop {
-            let current = unsafe { core::ptr::read_volatile(self.ptr) };
-            let prev = unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, current, current) };
-            if prev == current {
-                return current;
-            }
-            // CAS failed — another writer changed the value. Retry.
-        }
+        unsafe { core::ptr::read_volatile(self.ptr) }
     }
 
     /// Atomically sets the value, returning the previous value.
@@ -179,25 +174,27 @@ impl FreeRtosAtomicU32 {
     /// Atomically compares and swaps.
     ///
     /// If the current value equals `expected`, sets to `new`.
-    /// Returns the previous value (check if it equals `expected` to know if swap succeeded).
-    pub fn compare_and_swap(&self, expected: u32, new: u32) -> u32 {
-        unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, expected) }
+    /// Returns `true` if the swap succeeded, `false` otherwise.
+    ///
+    /// Note: FreeRTOS's `Atomic_CompareAndSwap_u32` returns success/failure (0/1),
+    /// NOT the previous value.
+    pub fn compare_and_swap(&self, expected: u32, new: u32) -> bool {
+        unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, expected) != 0 }
     }
 
     /// Atomically swaps with `new`, returning the previous value.
     ///
-    /// Uses a CAS loop where the next iteration uses the failed CAS return
-    /// value (not a non-atomic re-read), following the standard CAS-loop idiom.
+    /// Uses a CAS loop: reads the current value, then attempts CAS.
+    /// FreeRTOS CAS returns success/failure, so we read the current value
+    /// with a volatile read and retry until CAS succeeds.
     pub fn swap(&self, new: u32) -> u32 {
-        // Read initial value with volatile read, then use CAS return value
-        // on contention (standard CAS loop pattern).
         let mut current = unsafe { core::ptr::read_volatile(self.ptr) };
         loop {
-            let prev = unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, current) };
-            if prev == current {
-                return prev;
+            if unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, current) != 0 } {
+                return current;
             }
-            current = prev;
+            // CAS failed — another writer changed the value. Re-read and retry.
+            current = unsafe { core::ptr::read_volatile(self.ptr) };
         }
     }
 }
@@ -228,3 +225,15 @@ const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_or_u32;
 const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_and_u32;
 const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_nand_u32;
 const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_xor_u32;
+
+// CAS returns success/failure (0/1), not the previous value
+const _: unsafe extern "C" fn(*mut u32, u32, u32) -> u32 = freertos_rs_atomic_compare_and_swap_u32;
+
+// Pointer CAS also returns u32 success/failure code
+const _: unsafe extern "C" fn(*mut *mut core::ffi::c_void, *mut core::ffi::c_void, *mut core::ffi::c_void) -> u32 = freertos_rs_atomic_compare_and_swap_pointers_p32;
+
+// FreeRtosAtomicU32 is Send + Sync (atomic operations are inherently thread-safe)
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<FreeRtosAtomicU32>();
+};
