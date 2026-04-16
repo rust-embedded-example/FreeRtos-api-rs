@@ -274,23 +274,19 @@ impl MessageBuffer {
 
 impl Drop for MessageBuffer {
     fn drop(&mut self) {
-        unsafe { freertos_rs_message_buffer_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_message_buffer_delete(self.handle) };
+        }
     }
 }
 
 unsafe impl Send for MessageBuffer {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_message_buffer_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<MessageBuffer>();
-    }
-}
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<MessageBuffer>();
+};

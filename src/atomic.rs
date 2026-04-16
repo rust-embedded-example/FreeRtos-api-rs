@@ -112,14 +112,28 @@ impl FreeRtosAtomicU32 {
         Some(Self { ptr })
     }
 
-    /// Returns the current value.
+    /// Returns the current value atomically.
+    ///
+    /// Uses a no-op CAS (compare with sentinel, write back same value) to
+    /// perform an atomic read. This is necessary because FreeRTOS V11.1.0
+    /// does not provide `Atomic_Load_u32`.
     pub fn load(&self) -> u32 {
-        unsafe { core::ptr::read(self.ptr) }
+        // No-op CAS: read atomically and write back the same value.
+        // We use 0 as expected — since we always write back the value we read,
+        // this is equivalent to an atomic load on any CAS-capable target.
+        loop {
+            let current = unsafe { core::ptr::read_volatile(self.ptr) };
+            let prev = unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, current, current) };
+            if prev == current {
+                return current;
+            }
+            // CAS failed — another writer changed the value. Retry.
+        }
     }
 
-    /// Sets the value directly (non-atomic, use with care).
-    pub fn store(&self, value: u32) {
-        unsafe { core::ptr::write(self.ptr, value) };
+    /// Atomically sets the value, returning the previous value.
+    pub fn store(&self, value: u32) -> u32 {
+        self.swap(value)
     }
 
     /// Atomically adds `value`, returning the previous value.
@@ -171,22 +185,28 @@ impl FreeRtosAtomicU32 {
     }
 
     /// Atomically swaps with `new`, returning the previous value.
+    ///
+    /// Uses a CAS loop where the next iteration uses the failed CAS return
+    /// value (not a non-atomic re-read), following the standard CAS-loop idiom.
     pub fn swap(&self, new: u32) -> u32 {
-        // FreeRTOS doesn't have Atomic_Exchange_u32 in V11.1.0,
-        // so we use CAS in a loop (for correctness on contention).
+        // Read initial value with volatile read, then use CAS return value
+        // on contention (standard CAS loop pattern).
+        let mut current = unsafe { core::ptr::read_volatile(self.ptr) };
         loop {
-            let current = self.load();
-            let prev = self.compare_and_swap(current, new);
+            let prev = unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, current) };
             if prev == current {
                 return prev;
             }
+            current = prev;
         }
     }
 }
 
 impl Drop for FreeRtosAtomicU32 {
     fn drop(&mut self) {
-        unsafe { crate::portable::freertos_rs_port_free(self.ptr as *mut core::ffi::c_void) };
+        if !self.ptr.is_null() {
+            unsafe { crate::portable::freertos_rs_port_free(self.ptr as *mut core::ffi::c_void) };
+        }
     }
 }
 
@@ -196,23 +216,15 @@ unsafe impl Send for FreeRtosAtomicU32 {}
 unsafe impl Sync for FreeRtosAtomicU32 {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_atomic_function_signatures() {
-        // This test just verifies the function signatures are correct by
-        // referencing them. The actual atomic operations require FreeRTOS.
-        use super::*;
-        let _ = freertos_rs_atomic_add_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-        let _ = freertos_rs_atomic_subtract_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-        let _ = freertos_rs_atomic_increment_u32 as unsafe extern "C" fn(*mut u32) -> u32;
-        let _ = freertos_rs_atomic_decrement_u32 as unsafe extern "C" fn(*mut u32) -> u32;
-        let _ = freertos_rs_atomic_or_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-        let _ = freertos_rs_atomic_and_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-        let _ = freertos_rs_atomic_nand_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-        let _ = freertos_rs_atomic_xor_u32 as unsafe extern "C" fn(*mut u32, u32) -> u32;
-    }
-}
+// Verify FFI function signatures match expected types
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_add_u32;
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_subtract_u32;
+const _: unsafe extern "C" fn(*mut u32) -> u32 = freertos_rs_atomic_increment_u32;
+const _: unsafe extern "C" fn(*mut u32) -> u32 = freertos_rs_atomic_decrement_u32;
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_or_u32;
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_and_u32;
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_nand_u32;
+const _: unsafe extern "C" fn(*mut u32, u32) -> u32 = freertos_rs_atomic_xor_u32;

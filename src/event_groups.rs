@@ -238,7 +238,9 @@ impl EventGroup {
 
 impl Drop for EventGroup {
     fn drop(&mut self) {
-        unsafe { freertos_rs_event_group_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_event_group_delete(self.handle) };
+        }
     }
 }
 
@@ -246,18 +248,12 @@ unsafe impl Send for EventGroup {}
 unsafe impl Sync for EventGroup {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_event_group_is_send_sync() {
-        fn assert_send<T: Send>() {}
-        fn assert_sync<T: Sync>() {}
-        assert_send::<EventGroup>();
-        assert_sync::<EventGroup>();
-    }
-}
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
+    assert_send::<EventGroup>();
+    assert_sync::<EventGroup>();
+};

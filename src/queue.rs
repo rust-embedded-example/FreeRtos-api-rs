@@ -569,14 +569,17 @@ impl<T> Queue<T> {
 
 impl<T> Drop for Queue<T> {
     fn drop(&mut self) {
-        unsafe { freertos_rs_queue_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_queue_delete(self.handle) };
+        }
     }
 }
 
 // Safety: Queue handles are safe to share between threads — FreeRTOS manages
-// the internal synchronization.
+// the internal synchronization. Sync requires T: Sync because multiple
+// readers can observe copies of the same value via peek/receive.
 unsafe impl<T: Send> Send for Queue<T> {}
-unsafe impl<T: Send> Sync for Queue<T> {}
+unsafe impl<T: Send + Sync> Sync for Queue<T> {}
 
 //===========================================================================
 // SAFE WRAPPER - QUEUE SET
@@ -680,18 +683,12 @@ unsafe impl Send for QueueSet {}
 unsafe impl Sync for QueueSet {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_queue_is_send_sync() {
-        fn assert_send<T: Send>() {}
-        fn assert_sync<T: Sync>() {}
-        assert_send::<Queue<u32>>();
-        assert_sync::<Queue<u32>>();
-    }
-}
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
+    assert_send::<Queue<u32>>();
+    assert_sync::<Queue<u32>>();
+};

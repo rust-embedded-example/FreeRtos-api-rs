@@ -145,7 +145,7 @@
 //! - `configNUMBER_OF_CORES` — SMP/multi-core APIs
 
 #![no_std]
-#[allow(non_snake_case)]
+#![allow(non_snake_case)]
 
 // Module declarations
 pub mod base;
@@ -177,9 +177,6 @@ pub use base::{
 use core::panic::PanicInfo;
 
 /// Default panic handler for `no_std` FreeRTOS environments.
-///
-/// In a real application you may want to replace this with a handler that
-/// logs the panic info, blinks an LED, or triggers a system reset.
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {}

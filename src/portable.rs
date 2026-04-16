@@ -43,6 +43,24 @@ unsafe extern "C" {
 
     /// Requests a context switch (`portYIELD`).
     pub fn freertos_rs_port_yield();
+
+    /// Allocates memory for task stack from a separate heap.
+    ///
+    /// Wraps `pvPortMallocStack()`. Only available when
+    /// `configSTACK_ALLOCATION_FROM_SEPARATE_HEAP == 1`. When that config
+    /// option is 0, this resolves to `pvPortMalloc` via a C macro.
+    pub fn freertos_rs_port_malloc_stack(size: usize) -> FreeRtosVoidPtr;
+
+    /// Frees memory allocated with `pvPortMallocStack`.
+    ///
+    /// Wraps `vPortFreeStack()`. See `freertos_rs_port_malloc_stack`.
+    pub fn freertos_rs_port_free_stack(ptr: FreeRtosVoidPtr);
+
+    /// Resets the heap state.
+    ///
+    /// Wraps `vPortHeapResetState()`. Used to reset the heap to its initial
+    /// state, typically before restarting the scheduler.
+    pub fn freertos_rs_port_heap_reset_state();
 }
 
 //===========================================================================
@@ -65,11 +83,41 @@ pub struct FreeRtosAllocator;
 
 unsafe impl core::alloc::GlobalAlloc for FreeRtosAllocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
-        unsafe { freertos_rs_port_malloc(layout.size()) as *mut u8 }
+        // pvPortMalloc typically guarantees portBYTE_ALIGNMENT alignment (8 bytes).
+        // For larger alignment requirements, over-allocate and align manually.
+        const MIN_ALIGN: usize = 8;
+        if layout.align() <= MIN_ALIGN {
+            unsafe { freertos_rs_port_malloc(layout.size()) as *mut u8 }
+        } else {
+            // Over-allocate: extra (align - 1) + sizeof(usize) bytes to store the original pointer
+            let total = layout.size().checked_add(layout.align() - 1 + core::mem::size_of::<usize>());
+            let total = match total {
+                Some(t) => t,
+                None => return core::ptr::null_mut(),
+            };
+            let raw = unsafe { freertos_rs_port_malloc(total) as *mut u8 };
+            if raw.is_null() {
+                return core::ptr::null_mut();
+            }
+            // Calculate aligned offset, reserving space for the original pointer
+            let raw_addr = raw as usize;
+            let aligned = (raw_addr + core::mem::size_of::<usize>() + layout.align() - 1) & !(layout.align() - 1);
+            let _offset = aligned - raw_addr;
+            // Store the original pointer just before the aligned address
+            unsafe { core::ptr::write((aligned - core::mem::size_of::<usize>()) as *mut *mut u8, raw) };
+            aligned as *mut u8
+        }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: core::alloc::Layout) {
-        unsafe { freertos_rs_port_free(ptr as FreeRtosVoidPtr) };
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+        const MIN_ALIGN: usize = 8;
+        if layout.align() <= MIN_ALIGN {
+            unsafe { freertos_rs_port_free(ptr as FreeRtosVoidPtr) };
+        } else {
+            // Retrieve the original pointer stored before the aligned address
+            let raw = unsafe { core::ptr::read((ptr as usize - core::mem::size_of::<usize>()) as *mut *mut u8) };
+            unsafe { freertos_rs_port_free(raw as FreeRtosVoidPtr) };
+        }
     }
 }
 
@@ -100,16 +148,10 @@ pub fn get_heap_stats() -> FreeRtosHeapStats {
 }
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_allocator_is_send_sync() {
-        fn assert_send_sync<T: Send + Sync>() {}
-        assert_send_sync::<FreeRtosAllocator>();
-    }
-}
+const _: () = {
+    const fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<FreeRtosAllocator>();
+};

@@ -25,7 +25,8 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTimerHandle, FreeRtosTimerCallback,
-    FreeRtosVoidPtr, FreeRtosUBaseType, FreeRtosPendedFunction, FreeRtosError, PD_PASS, PD_TRUE, PD_FALSE, PORT_MAX_DELAY,
+    FreeRtosVoidPtr, FreeRtosUBaseType, FreeRtosPendedFunction, FreeRtosError,
+    FreeRtosTaskHandle, PD_PASS, PD_TRUE, PD_FALSE, PORT_MAX_DELAY,
 };
 
 //===========================================================================
@@ -130,7 +131,7 @@ unsafe extern "C" {
     pub fn freertos_rs_timer_is_timer_active(timer: FreeRtosTimerHandle) -> FreeRtosBaseType;
 
     /// Gets the handle of the timer daemon task.
-    pub fn freertos_rs_timer_get_timer_daemon_task_handle() -> FreeRtosVoidPtr;
+    pub fn freertos_rs_timer_get_timer_daemon_task_handle() -> FreeRtosTaskHandle;
 
     /// Gets the period of a timer in ticks.
     pub fn freertos_rs_timer_get_period(timer: FreeRtosTimerHandle) -> FreeRtosTickType;
@@ -218,7 +219,9 @@ impl Timer {
     /// * `period_ticks` — Timer period in ticks
     /// * `auto_reload` — `true` for auto-reload (periodic), `false` for one-shot
     /// * `callback` — Function called when the timer expires
-    pub fn new(
+    /// # Safety
+    /// `name` must be a valid null-terminated C string.
+    pub unsafe fn new(
         name: *const u8,
         period_ticks: FreeRtosTickType,
         auto_reload: bool,
@@ -289,7 +292,7 @@ impl Timer {
         unsafe {
             freertos_rs_timer_set_reload_mode(
                 self.handle,
-                if auto_reload { PD_TRUE as FreeRtosUBaseType } else { PD_FALSE as FreeRtosUBaseType },
+                if auto_reload { PD_TRUE } else { PD_FALSE },
             )
         }
     }
@@ -335,30 +338,29 @@ impl Timer {
     }
 
     /// Sets the timer ID (user-defined data pointer).
-    pub fn set_timer_id(&self, new_id: FreeRtosVoidPtr) {
+    ///
+    /// # Safety
+    /// `new_id` must be a valid pointer or null for the intended use.
+    pub unsafe fn set_timer_id(&self, new_id: FreeRtosVoidPtr) {
         unsafe { freertos_rs_timer_set_timer_id(self.handle, new_id) };
     }
 }
 
 impl Drop for Timer {
     fn drop(&mut self) {
-        unsafe { freertos_rs_timer_delete(self.handle, PORT_MAX_DELAY) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_timer_delete(self.handle, PORT_MAX_DELAY) };
+        }
     }
 }
 
 unsafe impl Send for Timer {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_timer_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<Timer>();
-    }
-}
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<Timer>();
+};

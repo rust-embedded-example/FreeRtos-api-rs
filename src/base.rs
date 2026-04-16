@@ -409,103 +409,60 @@ pub struct FreeRtosTaskStatusFfi {
 }
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use core::mem::{align_of, size_of};
+// Base type sizes
+const _: () = assert!(core::mem::size_of::<FreeRtosBaseType>() == 4);
+const _: () = assert!(core::mem::size_of::<FreeRtosUBaseType>() == 4);
+const _: () = assert!(core::mem::size_of::<FreeRtosTickType>() == 4);
+const _: () = assert!(core::mem::size_of::<FreeRtosConfigStackDepthType>() == 2);
 
-    #[test]
-    fn test_base_type_sizes() {
-        assert_eq!(size_of::<FreeRtosBaseType>(), 4);
-        assert_eq!(size_of::<FreeRtosUBaseType>(), 4);
-        assert_eq!(size_of::<FreeRtosTickType>(), 4);
-        assert_eq!(size_of::<FreeRtosConfigStackDepthType>(), 2);
-    }
+// Handle types are pointer-sized
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosQueueHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosSemaphoreHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosTimerHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosEventGroupHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosStreamBufferHandle>() == core::mem::size_of::<*const c_void>());
+const _: () = assert!(core::mem::size_of::<FreeRtosMessageBufferHandle>() == core::mem::size_of::<*const c_void>());
 
-    #[test]
-    fn test_handle_types_are_pointers() {
-        assert_eq!(size_of::<FreeRtosTaskHandle>(), size_of::<*const c_void>());
-        assert_eq!(size_of::<FreeRtosQueueHandle>(), size_of::<*const c_void>());
-        assert_eq!(size_of::<FreeRtosSemaphoreHandle>(), size_of::<*const c_void>());
-        assert_eq!(size_of::<FreeRtosTimerHandle>(), size_of::<*const c_void>());
-        assert_eq!(size_of::<FreeRtosEventGroupHandle>(), size_of::<*const c_void>());
-        assert_eq!(
-            size_of::<FreeRtosStreamBufferHandle>(),
-            size_of::<*const c_void>()
-        );
-        assert_eq!(
-            size_of::<FreeRtosMessageBufferHandle>(),
-            size_of::<*const c_void>()
-        );
-    }
+// Enum discriminant values
+const _: () = assert!(FreeRtosNotifyAction::NoAction as u32 == 0);
+const _: () = assert!(FreeRtosNotifyAction::SetBits as u32 == 1);
+const _: () = assert!(FreeRtosNotifyAction::Increment as u32 == 2);
+const _: () = assert!(FreeRtosNotifyAction::SetValueWithOverwrite as u32 == 3);
+const _: () = assert!(FreeRtosNotifyAction::SetValueWithoutOverwrite as u32 == 4);
 
-    #[test]
-    fn test_notify_action_values() {
-        assert_eq!(FreeRtosNotifyAction::NoAction as u32, 0);
-        assert_eq!(FreeRtosNotifyAction::SetBits as u32, 1);
-        assert_eq!(FreeRtosNotifyAction::Increment as u32, 2);
-        assert_eq!(FreeRtosNotifyAction::SetValueWithOverwrite as u32, 3);
-        assert_eq!(FreeRtosNotifyAction::SetValueWithoutOverwrite as u32, 4);
-    }
+const _: () = assert!(FreeRtosQueueSendPosition::SendToBack as u32 == 0);
+const _: () = assert!(FreeRtosQueueSendPosition::SendToFront as u32 == 1);
+const _: () = assert!(FreeRtosQueueSendPosition::Overwrite as u32 == 2);
 
-    #[test]
-    fn test_queue_send_position_values() {
-        assert_eq!(FreeRtosQueueSendPosition::SendToBack as u32, 0);
-        assert_eq!(FreeRtosQueueSendPosition::SendToFront as u32, 1);
-        assert_eq!(FreeRtosQueueSendPosition::Overwrite as u32, 2);
-    }
+const _: () = assert!(FreeRtosTaskState::Running as u8 == 0);
+const _: () = assert!(FreeRtosTaskState::Ready as u8 == 1);
+const _: () = assert!(FreeRtosTaskState::Blocked as u8 == 2);
+const _: () = assert!(FreeRtosTaskState::Suspended as u8 == 3);
+const _: () = assert!(FreeRtosTaskState::Deleted as u8 == 4);
 
-    #[test]
-    fn test_task_state_values() {
-        assert_eq!(FreeRtosTaskState::Running as u8, 0);
-        assert_eq!(FreeRtosTaskState::Ready as u8, 1);
-        assert_eq!(FreeRtosTaskState::Blocked as u8, 2);
-        assert_eq!(FreeRtosTaskState::Suspended as u8, 3);
-        assert_eq!(FreeRtosTaskState::Deleted as u8, 4);
-    }
+const _: () = assert!(FreeRtosTimerCommand::Start as u32 == 0);
+const _: () = assert!(FreeRtosTimerCommand::Stop as u32 == 1);
+const _: () = assert!(FreeRtosTimerCommand::ChangePeriod as u32 == 2);
+const _: () = assert!(FreeRtosTimerCommand::Delete as u32 == 3);
+const _: () = assert!(FreeRtosTimerCommand::Reset as u32 == 4);
 
-    #[test]
-    fn test_timer_command_values() {
-        assert_eq!(FreeRtosTimerCommand::Start as u32, 0);
-        assert_eq!(FreeRtosTimerCommand::Stop as u32, 1);
-        assert_eq!(FreeRtosTimerCommand::ChangePeriod as u32, 2);
-        assert_eq!(FreeRtosTimerCommand::Delete as u32, 3);
-        assert_eq!(FreeRtosTimerCommand::Reset as u32, 4);
-    }
+// Constants
+const _: () = assert!(PD_TRUE == 1);
+const _: () = assert!(PD_FALSE == 0);
+const _: () = assert!(PD_PASS == 1);
+const _: () = assert!(PD_FAIL == 0);
+const _: () = assert!(PORT_MAX_DELAY == 0xFFFFFFFF);
+const _: () = assert!(TSK_DEFAULT_INDEX_TO_NOTIFY == 0);
+const _: () = assert!(TSK_IDLE_PRIORITY == 0);
+const _: () = assert!(TSK_NO_AFFINITY == 0xFFFFFFFF);
 
-    #[test]
-    fn test_constants() {
-        assert_eq!(PD_TRUE, 1);
-        assert_eq!(PD_FALSE, 0);
-        assert_eq!(PD_PASS, 1);
-        assert_eq!(PD_FAIL, 0);
-        assert_eq!(PORT_MAX_DELAY, 0xFFFFFFFF);
-        assert_eq!(TSK_DEFAULT_INDEX_TO_NOTIFY, 0);
-        assert_eq!(TSK_IDLE_PRIORITY, 0);
-        assert_eq!(TSK_NO_AFFINITY, 0xFFFFFFFF);
-    }
+// Struct layouts
+const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == core::mem::size_of::<FreeRtosBaseType>() + core::mem::size_of::<FreeRtosTickType>());
+const _: () = assert!(core::mem::align_of::<FreeRtosTimeOut>() >= 4);
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskStatusFfi>() > 0);
+const _: () = assert!(core::mem::size_of::<FreeRtosHeapStats>() == 7 * core::mem::size_of::<usize>());
 
-    #[test]
-    fn test_timeout_struct_layout() {
-        assert_eq!(
-            size_of::<FreeRtosTimeOut>(),
-            size_of::<FreeRtosBaseType>() + size_of::<FreeRtosTickType>()
-        );
-        assert!(align_of::<FreeRtosTimeOut>() >= 4);
-    }
-
-    #[test]
-    fn test_task_status_struct_layout() {
-        // Verify the struct is a reasonable size (platform dependent, but should be consistent)
-        assert!(size_of::<FreeRtosTaskStatusFfi>() > 0);
-    }
-
-    #[test]
-    fn test_heap_stats_struct_layout() {
-        // 7 usize fields
-        assert_eq!(size_of::<FreeRtosHeapStats>(), 7 * size_of::<usize>());
-    }
-}

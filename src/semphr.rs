@@ -237,7 +237,7 @@ impl BinarySemaphore {
     /// The caller must ensure `buffer` is properly aligned for
     /// `StaticSemaphore_t` and remains valid for the semaphore's lifetime.
     pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
-        let handle = freertos_rs_semaphore_create_binary_static(buffer);
+        let handle = unsafe { freertos_rs_semaphore_create_binary_static(buffer) };
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
@@ -248,7 +248,9 @@ impl BinarySemaphore {
 
 impl Drop for BinarySemaphore {
     fn drop(&mut self) {
-        unsafe { freertos_rs_semaphore_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_semaphore_delete(self.handle) };
+        }
     }
 }
 
@@ -311,7 +313,7 @@ impl CountingSemaphore {
         initial_count: FreeRtosUBaseType,
         buffer: FreeRtosVoidPtr,
     ) -> Result<Self, FreeRtosError> {
-        let handle = freertos_rs_semaphore_create_counting_static(max_count, initial_count, buffer);
+        let handle = unsafe { freertos_rs_semaphore_create_counting_static(max_count, initial_count, buffer) };
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
@@ -322,7 +324,9 @@ impl CountingSemaphore {
 
 impl Drop for CountingSemaphore {
     fn drop(&mut self) {
-        unsafe { freertos_rs_semaphore_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_semaphore_delete(self.handle) };
+        }
     }
 }
 
@@ -364,7 +368,7 @@ impl Mutex {
     /// The caller must ensure `buffer` is properly aligned for
     /// `StaticSemaphore_t` and remains valid for the mutex's lifetime.
     pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
-        let handle = freertos_rs_semaphore_create_mutex_static(buffer);
+        let handle = unsafe { freertos_rs_semaphore_create_mutex_static(buffer) };
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
@@ -420,7 +424,9 @@ impl Drop for Mutex {
         if self.owned {
             self.unlock();
         }
-        unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
+        }
     }
 }
 
@@ -464,34 +470,25 @@ impl RecursiveMutex {
 
 impl Drop for RecursiveMutex {
     fn drop(&mut self) {
-        unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
+        }
     }
 }
 
 unsafe impl Send for RecursiveMutex {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_semaphore_is_send_sync() {
-        fn assert_send<T: Send>() {}
-        fn assert_sync<T: Sync>() {}
-        assert_send::<BinarySemaphore>();
-        assert_sync::<BinarySemaphore>();
-        assert_send::<CountingSemaphore>();
-        assert_sync::<CountingSemaphore>();
-    }
-
-    #[test]
-    fn test_mutex_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<Mutex>();
-        assert_send::<RecursiveMutex>();
-    }
-}
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
+    assert_send::<BinarySemaphore>();
+    assert_sync::<BinarySemaphore>();
+    assert_send::<CountingSemaphore>();
+    assert_sync::<CountingSemaphore>();
+    assert_send::<Mutex>();
+    assert_send::<RecursiveMutex>();
+};

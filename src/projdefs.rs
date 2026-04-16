@@ -113,48 +113,28 @@ pub const fn ticks_to_ms(ticks: FreeRtosTickType) -> FreeRtosTickType {
 }
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+const _: () = assert!(TASK_SCHEDULER_NOT_STARTED == 0);
+const _: () = assert!(TASK_SCHEDULER_RUNNING == 1);
+const _: () = assert!(TASK_SCHEDULER_SUSPENDED == 2);
 
-    #[test]
-    fn test_scheduler_constants() {
-        assert_eq!(TASK_SCHEDULER_NOT_STARTED, 0);
-        assert_eq!(TASK_SCHEDULER_RUNNING, 1);
-        assert_eq!(TASK_SCHEDULER_SUSPENDED, 2);
-    }
+const _: () = assert!(pdTRUE == 1);
+const _: () = assert!(pdFALSE == 0);
+const _: () = assert!(pdPASS == 1);
+const _: () = assert!(pdFAIL == 0);
 
-    #[test]
-    fn test_pd_constants() {
-        assert_eq!(pdTRUE, 1);
-        assert_eq!(pdFALSE, 0);
-        assert_eq!(pdPASS, 1);
-        assert_eq!(pdFAIL, 0);
-    }
+const _: () = assert!(ms_to_ticks(100) == 100);
+const _: () = assert!(ticks_to_ms(100) == 100);
 
-    #[test]
-    fn test_compile_time_conversions() {
-        assert_eq!(ms_to_ticks(100), 100);
-        assert_eq!(ticks_to_ms(100), 100);
-    }
+const _: () = assert!(ERR_QUEUE_EMPTY == -1);
+const _: () = assert!(ERR_QUEUE_FULL == -2);
+const _: () = assert!(ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY == -3);
+const _: () = assert!(ERR_QUEUE_BLOCKED == -4);
+const _: () = assert!(ERR_QUEUE_YIELD == -5);
 
-    #[test]
-    fn test_error_code_constants() {
-        assert_eq!(ERR_QUEUE_EMPTY, -1);
-        assert_eq!(ERR_QUEUE_FULL, -2);
-        assert_eq!(ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY, -3);
-        assert_eq!(ERR_QUEUE_BLOCKED, -4);
-        assert_eq!(ERR_QUEUE_YIELD, -5);
-    }
-
-    #[test]
-    fn test_event_bit_constants() {
-        assert_eq!(EVENT_CLEAR_EVENTS_ON_EXIT_BIT, 0x01000000);
-        assert_eq!(EVENT_UNBLOCKED_DUE_TO_BIT_SET, 0x02000000);
-        assert_eq!(EVENT_WAIT_FOR_ALL_BITS, 0x04000000);
-        assert_eq!(EVENT_EVENT_BITS_CONTROL_BYTES, 0xFF000000);
-    }
-}
+const _: () = assert!(EVENT_CLEAR_EVENTS_ON_EXIT_BIT == 0x01000000);
+const _: () = assert!(EVENT_UNBLOCKED_DUE_TO_BIT_SET == 0x02000000);
+const _: () = assert!(EVENT_WAIT_FOR_ALL_BITS == 0x04000000);
+const _: () = assert!(EVENT_EVENT_BITS_CONTROL_BYTES == 0xFF000000);

@@ -2505,9 +2505,9 @@ void freertos_rs_message_buffer_delete(MessageBufferHandle_t xMessageBuffer)
  * @param pvTxData Message to send
  * @param xDataLengthBytes Length of message in bytes
  * @param xTicksToWait Ticks to wait
- * @return BaseType_t - pdTRUE if successful
+ * @return size_t - Number of bytes sent
  */
-BaseType_t freertos_rs_message_buffer_send(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, TickType_t xTicksToWait)
+size_t freertos_rs_message_buffer_send(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, TickType_t xTicksToWait)
 {
     return xMessageBufferSend(xMessageBuffer, pvTxData, xDataLengthBytes, xTicksToWait);
 }
@@ -3375,21 +3375,6 @@ void freertos_rs_stream_buffer_set_notification_index(StreamBufferHandle_t xStre
     vStreamBufferSetStreamBufferNotificationIndex(xStreamBuffer, uxNotificationIndex);
 }
 
-#if (configSUPPORT_STATIC_ALLOCATION == 1)
-/**
- * @brief Wrapper for xStreamBufferGetStaticBuffers()
- * Gets the static buffers associated with a stream buffer
- * @param xStreamBuffer Stream buffer handle
- * @param ppucStreamBufferStorageArea Pointer to receive storage area pointer
- * @param ppxStaticStreamBuffer Pointer to receive static stream buffer pointer
- * @return BaseType_t - pdTRUE if successful
- */
-BaseType_t freertos_rs_stream_buffer_get_static_buffers(StreamBufferHandle_t xStreamBuffer, uint8_t **ppucStreamBufferStorageArea, StaticStreamBuffer_t **ppxStaticStreamBuffer)
-{
-    return xStreamBufferGetStaticBuffers(xStreamBuffer, ppucStreamBufferStorageArea, ppxStaticStreamBuffer);
-}
-#endif
-
 #if (configUSE_TRACE_FACILITY == 1)
 /**
  * @brief Wrapper for vStreamBufferSetStreamBufferNumber()
@@ -3474,6 +3459,36 @@ void freertos_rs_port_get_heap_stats(void *pxHeapStats)
     vPortGetHeapStats((HeapStats_t *)pxHeapStats);
 }
 #endif
+
+/**
+ * @brief Wrapper for pvPortMallocStack()
+ * Allocates memory for task stack from a separate heap
+ * @param xSize Number of bytes to allocate
+ * @return Pointer to allocated memory, or NULL on failure
+ */
+void* freertos_rs_port_malloc_stack(size_t xSize)
+{
+    return pvPortMallocStack(xSize);
+}
+
+/**
+ * @brief Wrapper for vPortFreeStack()
+ * Frees memory previously allocated with pvPortMallocStack
+ * @param pv Pointer to memory to free
+ */
+void freertos_rs_port_free_stack(void *pv)
+{
+    vPortFreeStack(pv);
+}
+
+/**
+ * @brief Wrapper for vPortHeapResetState()
+ * Resets the heap state (used before restarting the scheduler)
+ */
+void freertos_rs_port_heap_reset_state(void)
+{
+    vPortHeapResetState();
+}
 
 #if (configAPPLICATION_ALLOCATED_HEAP == 1)
 /**

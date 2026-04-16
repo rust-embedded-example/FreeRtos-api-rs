@@ -376,7 +376,9 @@ impl StreamBuffer {
 
 impl Drop for StreamBuffer {
     fn drop(&mut self) {
-        unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+        }
     }
 }
 
@@ -504,31 +506,24 @@ impl BatchingBuffer {
 
 impl Drop for BatchingBuffer {
     fn drop(&mut self) {
-        unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+        if !self.handle.is_null() {
+            unsafe { freertos_rs_stream_buffer_delete(self.handle) };
+        }
     }
 }
 
 unsafe impl Send for BatchingBuffer {}
 
 //===========================================================================
-// UNIT TESTS
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<StreamBuffer>();
+    assert_send::<BatchingBuffer>();
+};
 
-    #[test]
-    fn test_stream_buffer_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<StreamBuffer>();
-        assert_send::<BatchingBuffer>();
-    }
-
-    #[test]
-    fn test_stream_buffer_type_constants() {
-        assert_eq!(SB_TYPE_STREAM_BUFFER, 0);
-        assert_eq!(SB_TYPE_MESSAGE_BUFFER, 1);
-        assert_eq!(SB_TYPE_STREAM_BATCHING_BUFFER, 2);
-    }
-}
+const _: () = assert!(SB_TYPE_STREAM_BUFFER == 0);
+const _: () = assert!(SB_TYPE_MESSAGE_BUFFER == 1);
+const _: () = assert!(SB_TYPE_STREAM_BATCHING_BUFFER == 2);

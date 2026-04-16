@@ -67,19 +67,19 @@ unsafe extern "C" {
     ///
     /// Wraps `xTaskCreateRestricted()`. Only available when `portUSING_MPU_WRAPPERS == 1`.
     pub fn freertos_rs_task_create_restricted(
-        task_definition: *const FreeRtosVoidPtr,
+        task_definition: FreeRtosConstVoidPtr,
         created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
     /// Creates a new MPU-restricted task with static allocation.
     pub fn freertos_rs_task_create_restricted_static(
-        task_definition: *const FreeRtosVoidPtr,
+        task_definition: FreeRtosConstVoidPtr,
         created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
     /// Creates a new MPU-restricted task with static allocation and core affinity.
     pub fn freertos_rs_task_create_restricted_static_affinity_set(
-        task_definition: *const FreeRtosVoidPtr,
+        task_definition: FreeRtosConstVoidPtr,
         core_affinity_mask: FreeRtosUBaseType,
         created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
@@ -88,7 +88,7 @@ unsafe extern "C" {
     ///
     /// Wraps `xTaskCreateRestrictedAffinitySet()`.
     pub fn freertos_rs_task_create_restricted_affinity_set(
-        task_definition: *const FreeRtosVoidPtr,
+        task_definition: FreeRtosConstVoidPtr,
         core_affinity_mask: FreeRtosUBaseType,
         created_task: *mut FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
@@ -510,7 +510,7 @@ unsafe extern "C" {
     /// Allocates MPU regions to a task.
     pub fn freertos_rs_task_allocate_mpu_regions(
         task_to_modify: FreeRtosTaskHandle,
-        regions: *const FreeRtosVoidPtr,
+        regions: FreeRtosConstVoidPtr,
     );
 
     /// Increments the tick count (called by the tick ISR).
@@ -523,7 +523,9 @@ unsafe extern "C" {
 //===========================================================================
 // EXTERNAL C FUNCTION DECLARATIONS - ADDITIONAL INTERNAL API
 //===========================================================================
-
+// These functions are used by the C shim / kernel internals. They are not
+// called from Rust code but must remain linked. Suppress dead_code warning.
+#[allow(dead_code)]
 unsafe extern "C" {
     /// Indicates a context switch was missed (internal).
     pub(crate) fn freertos_rs_task_missed_yield();
@@ -696,7 +698,10 @@ impl PreemptionGuard {
     /// Disables preemption for the given task.
     ///
     /// Preemption will be re-enabled when the guard is dropped.
-    pub fn disable(task: FreeRtosTaskHandle) -> Self {
+    ///
+    /// # Safety
+    /// `task` must be a valid, non-null task handle.
+    pub unsafe fn disable(task: FreeRtosTaskHandle) -> Self {
         unsafe { freertos_rs_task_preemption_disable(task) };
         Self { task }
     }
@@ -753,13 +758,10 @@ pub struct Task {
 impl Task {
     /// Spawns a new FreeRTOS task with dynamic memory allocation.
     ///
-    /// # Arguments
-    /// * `name` — Null-terminated task name (C string)
-    /// * `stack_depth` — Stack depth in words (not bytes)
-    /// * `entry` — Task entry function
-    /// * `param` — Parameter passed to the entry function
-    /// * `priority` — Task priority (0 = idle)
-    pub fn spawn(
+    /// # Safety
+    /// `name` must be a valid null-terminated C string. `param` must be valid
+    /// for the lifetime of the task or null.
+    pub unsafe fn spawn(
         name: *const u8,
         stack_depth: FreeRtosConfigStackDepthType,
         entry: FreeRtosTaskFunction,
@@ -866,6 +868,103 @@ impl Task {
     pub fn detach(&mut self) {
         self.owns_task = false;
     }
+
+    /// Gets the base priority (before priority inheritance).
+    pub fn base_priority(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_base_priority_get(self.handle) }
+    }
+
+    /// Gets the base priority from ISR context.
+    pub fn base_priority_from_isr(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_base_priority_get_from_isr(self.handle) }
+    }
+
+    /// Gets the priority from ISR context.
+    pub fn priority_from_isr(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_priority_get_from_isr(self.handle) }
+    }
+
+    /// Sets the core affinity mask (SMP only).
+    pub fn set_core_affinity(&self, mask: FreeRtosUBaseType) {
+        unsafe { freertos_rs_task_core_affinity_set(self.handle, mask) }
+    }
+
+    /// Gets the core affinity mask (SMP only).
+    pub fn core_affinity(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_core_affinity_get(self.handle) }
+    }
+
+    /// Gets the static buffers for this task (static allocation only).
+    ///
+    /// Returns `true` on success.
+    ///
+    /// # Safety
+    /// The output pointers must be valid and properly aligned.
+    pub unsafe fn get_static_buffers(
+        &self,
+        stack_buffer: *mut FreeRtosStackType,
+        task_buffer: *mut FreeRtosStaticTask,
+    ) -> bool {
+        unsafe { freertos_rs_task_get_static_buffers(self.handle, stack_buffer, task_buffer) != 0 }
+    }
+
+    /// Gets the stack high water mark as `configSTACK_DEPTH_TYPE`.
+    pub fn stack_high_water_mark2(&self) -> FreeRtosConfigStackDepthType {
+        unsafe { freertos_rs_task_get_stack_high_water_mark2(self.handle) }
+    }
+
+    /// Sends an indexed notification to this task.
+    ///
+    /// # Safety
+    /// `previous_value` must be a valid pointer or null.
+    pub unsafe fn notify_indexed(
+        &self,
+        index: FreeRtosUBaseType,
+        value: u32,
+        action: crate::base::FreeRtosNotifyAction,
+        previous_value: *mut u32,
+    ) -> FreeRtosBaseType {
+        unsafe {
+            freertos_rs_task_generic_notify(self.handle, index, value, action as u32, previous_value)
+        }
+    }
+
+    /// Gives an indexed notification (increment) to this task.
+    pub fn notify_give_indexed(&self, index: FreeRtosUBaseType) -> FreeRtosBaseType {
+        // Use generic notify with Increment action
+        unsafe {
+            freertos_rs_task_generic_notify(
+                self.handle,
+                index,
+                0,
+                crate::base::FreeRtosNotifyAction::Increment as u32,
+                core::ptr::null_mut(),
+            )
+        }
+    }
+
+    /// Gets the task number (trace facility).
+    pub fn task_number(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_get_task_number(self.handle) }
+    }
+
+    /// Sets the task number (trace facility).
+    pub fn set_task_number(&self, number: FreeRtosUBaseType) {
+        unsafe { freertos_rs_task_set_task_number(self.handle, number) }
+    }
+
+    /// Sets a thread-local storage pointer for this task.
+    ///
+    /// # Safety
+    /// `value` must be a valid pointer or null for the intended use.
+    pub unsafe fn set_tls_pointer(&self, index: FreeRtosBaseType, value: FreeRtosVoidPtr) {
+        unsafe { freertos_rs_task_set_thread_local_storage_pointer(self.handle, index, value) }
+    }
+
+    /// Gets a thread-local storage pointer for this task.
+    pub fn get_tls_pointer(&self, index: FreeRtosBaseType) -> FreeRtosVoidPtr {
+        unsafe { freertos_rs_task_get_thread_local_storage_pointer(self.handle, index) }
+    }
 }
 
 impl Drop for Task {
@@ -962,38 +1061,52 @@ pub fn notify_take(clear_on_exit: bool, ticks_to_wait: FreeRtosTickType) -> u32 
     unsafe { freertos_rs_task_notify_take(if clear_on_exit { 1 } else { 0 }, ticks_to_wait) }
 }
 
-//===========================================================================
-// UNIT TESTS
-//===========================================================================
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_critical_section_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<CriticalSection>();
-    }
-
-    #[test]
-    fn test_critical_section_from_isr_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<CriticalSectionFromIsr>();
-    }
-
-    #[test]
-    fn test_preemption_guard_is_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<PreemptionGuard>();
-    }
-
-    #[test]
-    fn test_constants_match() {
-        use crate::base::*;
-        assert_eq!(PD_PASS, 1);
-        assert_eq!(PD_TRUE, 1);
-        assert_eq!(PD_FALSE, 0);
-        assert_eq!(PORT_MAX_DELAY, 0xFFFFFFFF);
-    }
+/// Delays the current task until an absolute wake time (for periodic tasks).
+///
+/// Returns `true` if the task was actually delayed.
+/// Use with `get_tick_count()` to compute the next wake time.
+pub fn delay_until(previous_wake_time: &mut FreeRtosTickType, time_increment: FreeRtosTickType) -> bool {
+    unsafe { freertos_rs_task_delay_until(previous_wake_time, time_increment) != 0 }
 }
+
+/// Gets the scheduler state.
+///
+/// Returns one of: `TASK_SCHEDULER_NOT_STARTED`, `TASK_SCHEDULER_RUNNING`,
+/// or `TASK_SCHEDULER_SUSPENDED` (from `projdefs` module).
+pub fn get_scheduler_state() -> FreeRtosBaseType {
+    unsafe { freertos_rs_task_get_scheduler_state() }
+}
+
+/// Gets the handle of a task by its name.
+///
+/// Returns `None` if no task with that name exists.
+///
+/// # Safety
+/// `task_name` must be a valid null-terminated C string.
+pub unsafe fn get_handle(task_name: *const u8) -> Option<FreeRtosTaskHandle> {
+    let handle = unsafe { freertos_rs_task_get_handle(task_name) };
+    if handle.is_null() { None } else { Some(handle) }
+}
+
+/// Gets the high water mark of the current task's stack.
+pub fn get_current_stack_high_water_mark() -> FreeRtosUBaseType {
+    unsafe { freertos_rs_task_get_stack_high_water_mark(core::ptr::null()) }
+}
+
+//===========================================================================
+// COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
+//===========================================================================
+
+// Send trait bounds
+const _: () = {
+    const fn assert_send<T: Send>() {}
+    assert_send::<CriticalSection>();
+    assert_send::<CriticalSectionFromIsr>();
+    assert_send::<PreemptionGuard>();
+};
+
+// Constants
+const _: () = assert!(crate::base::PD_PASS == 1);
+const _: () = assert!(crate::base::PD_TRUE == 1);
+const _: () = assert!(crate::base::PD_FALSE == 0);
+const _: () = assert!(crate::base::PORT_MAX_DELAY == 0xFFFFFFFF);
