@@ -526,6 +526,19 @@ uint32_t freertos_rs_task_notify_take(BaseType_t xClearCountOnExit, TickType_t x
 }
 
 /**
+ * @brief Wrapper for ulTaskGenericNotifyTake()
+ * Generic indexed notification take
+ * @param uxIndexToWaitOn Notification array index
+ * @param xClearCountOnExit Clear count on exit flag
+ * @param xTicksToWait Ticks to wait
+ * @return uint32_t - Notification value
+ */
+uint32_t freertos_rs_task_generic_notify_take(UBaseType_t uxIndexToWaitOn, BaseType_t xClearCountOnExit, TickType_t xTicksToWait)
+{
+    return ulTaskGenericNotifyTake(uxIndexToWaitOn, xClearCountOnExit, xTicksToWait);
+}
+
+/**
  * @brief Wrapper for xTaskGenericNotify()
  * Generic task notification function
  * @param xTaskToNotify Handle of task to notify
@@ -597,6 +610,17 @@ BaseType_t freertos_rs_task_generic_notify_state_clear(TaskHandle_t xTask, UBase
 void* freertos_rs_task_get_application_task_tag(TaskHandle_t xTask)
 {
     return xTaskGetApplicationTaskTag(xTask);
+}
+
+/**
+ * @brief Wrapper for xTaskGetApplicationTaskTagFromISR()
+ * Gets the application task tag from ISR context
+ * @param xTask Handle of task
+ * @return void* - Task tag value
+ */
+void* freertos_rs_task_get_application_task_tag_from_isr(TaskHandle_t xTask)
+{
+    return (void*)xTaskGetApplicationTaskTagFromISR(xTask);
 }
 
 /**
@@ -1154,7 +1178,7 @@ void freertos_rs_queue_delete(QueueHandle_t xQueue)
 
 /**
  * @brief Wrapper for xQueueSend()
- * Sends an item to the back of a queue
+ * Sends an item to the back of a queue (backwards-compatible API)
  * @param xQueue Queue handle
  * @param pvItemToQueue Pointer to item to send
  * @param xTicksToWait Ticks to wait if queue is full
@@ -1219,7 +1243,7 @@ BaseType_t freertos_rs_queue_peek(QueueHandle_t xQueue, void* pvBuffer, TickType
 
 /**
  * @brief Wrapper for xQueueSendFromISR()
- * Sends an item to a queue from an ISR
+ * Sends an item to the back of a queue from an ISR (backwards-compatible API)
  * @param xQueue Queue handle
  * @param pvItemToQueue Pointer to item to send
  * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag

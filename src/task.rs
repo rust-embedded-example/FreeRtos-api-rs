@@ -297,6 +297,16 @@ unsafe extern "C" {
         ticks_to_wait: FreeRtosTickType,
     ) -> u32;
 
+    /// Generic notification take with explicit index.
+    ///
+    /// Wraps `ulTaskGenericNotifyTake()`. The indexed version of
+    /// [`freertos_rs_task_notify_take`] which operates on index 0 only.
+    pub fn freertos_rs_task_generic_notify_take(
+        index_to_wait_on: FreeRtosUBaseType,
+        clear_count_on_exit: FreeRtosBaseType,
+        ticks_to_wait: FreeRtosTickType,
+    ) -> u32;
+
     /// Generic task notification with explicit index.
     pub fn freertos_rs_task_generic_notify(
         task_to_notify: FreeRtosTaskHandle,
@@ -353,6 +363,12 @@ unsafe extern "C" {
 unsafe extern "C" {
     /// Gets the application task tag.
     pub fn freertos_rs_task_get_application_task_tag(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr;
+
+    /// Gets the application task tag from ISR context.
+    ///
+    /// Wraps `xTaskGetApplicationTaskTagFromISR()`. ISR-safe version of
+    /// [`freertos_rs_task_get_application_task_tag`].
+    pub fn freertos_rs_task_get_application_task_tag_from_isr(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr;
 
     /// Sets the application task tag.
     pub fn freertos_rs_task_set_application_task_tag(task: FreeRtosTaskHandle, tag_value: FreeRtosVoidPtr);

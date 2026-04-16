@@ -56,6 +56,8 @@ unsafe extern "C" {
 
 unsafe extern "C" {
     /// Sends an item to the back of a queue.
+    ///
+    /// Wraps `xQueueSend()` (backwards-compatible alias for `xQueueSendToBack`).
     pub fn freertos_rs_queue_send(
         queue: FreeRtosQueueHandle,
         item_to_queue: *const FreeRtosVoidPtr,
@@ -120,6 +122,8 @@ unsafe extern "C" {
 
 unsafe extern "C" {
     /// Sends to the back of a queue from an ISR.
+    ///
+    /// Wraps `xQueueSendFromISR()` (backwards-compatible alias for `xQueueSendToBackFromISR`).
     pub fn freertos_rs_queue_send_from_isr(
         queue: FreeRtosQueueHandle,
         item_to_queue: *const FreeRtosVoidPtr,
