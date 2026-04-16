@@ -224,6 +224,26 @@ impl BinarySemaphore {
             freertos_rs_semaphore_give_from_isr(self.handle, higher_priority_task_woken) == PD_PASS
         }
     }
+
+    /// Creates a binary semaphore using static memory.
+    ///
+    /// The `buffer` must be a properly aligned buffer large enough for
+    /// a `StaticSemaphore_t`. On most platforms, 96 bytes with 4-byte
+    /// alignment is sufficient. The buffer must live for the entire
+    /// lifetime of the semaphore.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `buffer` is properly aligned for
+    /// `StaticSemaphore_t` and remains valid for the semaphore's lifetime.
+    pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
+        let handle = freertos_rs_semaphore_create_binary_static(buffer);
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
 }
 
 impl Drop for BinarySemaphore {
@@ -279,6 +299,25 @@ impl CountingSemaphore {
     pub fn count(&self) -> FreeRtosUBaseType {
         unsafe { freertos_rs_semaphore_get_count(self.handle) }
     }
+
+    /// Creates a counting semaphore using static memory.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `buffer` is properly aligned for
+    /// `StaticSemaphore_t` and remains valid for the semaphore's lifetime.
+    pub unsafe fn new_static(
+        max_count: FreeRtosUBaseType,
+        initial_count: FreeRtosUBaseType,
+        buffer: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = freertos_rs_semaphore_create_counting_static(max_count, initial_count, buffer);
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
 }
 
 impl Drop for CountingSemaphore {
@@ -315,6 +354,21 @@ impl Mutex {
                 handle,
                 owned: false,
             })
+        }
+    }
+
+    /// Creates a mutex using static memory.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `buffer` is properly aligned for
+    /// `StaticSemaphore_t` and remains valid for the mutex's lifetime.
+    pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
+        let handle = freertos_rs_semaphore_create_mutex_static(buffer);
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle, owned: false })
         }
     }
 

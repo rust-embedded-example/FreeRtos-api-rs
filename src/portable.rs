@@ -74,6 +74,32 @@ unsafe impl core::alloc::GlobalAlloc for FreeRtosAllocator {
 }
 
 //===========================================================================
+// SAFE WRAPPER - HEAP STATISTICS
+//===========================================================================
+
+/// Returns the total free heap space in bytes.
+pub fn get_free_heap_size() -> usize {
+    unsafe { freertos_rs_port_get_free_heap_size() }
+}
+
+/// Returns the minimum free heap space since boot (or since last reset).
+pub fn get_minimum_ever_free_heap_size() -> usize {
+    unsafe { freertos_rs_port_get_minimum_ever_free_heap_size() }
+}
+
+/// Resets the minimum-ever-free-heap-size counter.
+pub fn reset_heap_minimum_ever_free_heap_size() {
+    unsafe { freertos_rs_port_reset_heap_minimum_ever_free_heap_size() }
+}
+
+/// Returns detailed heap statistics.
+pub fn get_heap_stats() -> FreeRtosHeapStats {
+    let mut stats = FreeRtosHeapStats::default();
+    unsafe { freertos_rs_port_get_heap_stats(&mut stats as *mut FreeRtosHeapStats) };
+    stats
+}
+
+//===========================================================================
 // UNIT TESTS
 //===========================================================================
 

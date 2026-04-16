@@ -526,34 +526,34 @@ unsafe extern "C" {
 
 unsafe extern "C" {
     /// Indicates a context switch was missed (internal).
-    pub fn freertos_rs_task_missed_yield();
+    pub(crate) fn freertos_rs_task_missed_yield();
 
     /// Inherits priority from a mutex-holding task.
-    pub fn freertos_rs_task_priority_inherit(
+    pub(crate) fn freertos_rs_task_priority_inherit(
         mutex_holder: FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
     /// Disinherits priority when releasing a mutex.
-    pub fn freertos_rs_task_priority_disinherit(
+    pub(crate) fn freertos_rs_task_priority_disinherit(
         mutex_holder: FreeRtosTaskHandle,
     ) -> FreeRtosBaseType;
 
     /// Disinherits priority after a mutex timeout.
-    pub fn freertos_rs_task_priority_disinherit_after_timeout(
+    pub(crate) fn freertos_rs_task_priority_disinherit_after_timeout(
         mutex_holder: FreeRtosTaskHandle,
         highest_priority_waiting: FreeRtosUBaseType,
     );
 
     /// Removes a task from an event list (internal).
-    pub fn freertos_rs_task_remove_from_event_list(
+    pub(crate) fn freertos_rs_task_remove_from_event_list(
         event_list: FreeRtosConstVoidPtr,
     ) -> FreeRtosBaseType;
 
     /// Resets the event item value of the current task (internal).
-    pub fn freertos_rs_task_reset_event_item_value() -> FreeRtosUBaseType;
+    pub(crate) fn freertos_rs_task_reset_event_item_value() -> FreeRtosUBaseType;
 
     /// Increments the mutex held count (internal).
-    pub fn freertos_rs_task_increment_mutex_held_count() -> FreeRtosVoidPtr;
+    pub(crate) fn freertos_rs_task_increment_mutex_held_count() -> FreeRtosVoidPtr;
 
     /// Gets the current task handle for a specific core (SMP only).
     pub fn freertos_rs_task_get_current_task_handle_for_core(
@@ -710,6 +710,257 @@ impl Drop for PreemptionGuard {
 
 // Safety: PreemptionGuard controls scheduling state, not shared data.
 unsafe impl Send for PreemptionGuard {}
+
+//===========================================================================
+// SAFE WRAPPER - TASK
+//===========================================================================
+
+/// A spawned FreeRTOS task with RAII-managed lifetime.
+///
+/// Wraps a FreeRTOS task handle. When dropped, the task is deleted via
+/// `vTaskDelete`. The handle may be null if the task was not created
+/// successfully.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use freertos_api_rs::task::Task;
+/// use freertos_api_rs::base::TSK_IDLE_PRIORITY;
+///
+/// extern "C" fn my_task(_param: *mut core::ffi::c_void) {
+///     loop {
+///         unsafe { freertos_api_rs::task::freertos_rs_task_delay(100); }
+///     }
+/// }
+///
+/// let task = Task::spawn(
+///     b"my_task\0".as_ptr(),
+///     128,
+///     my_task,
+///     core::ptr::null_mut(),
+///     TSK_IDLE_PRIORITY + 1,
+/// ).expect("Failed to create task");
+///
+/// // task is deleted when `task` goes out of scope
+/// ```
+pub struct Task {
+    handle: FreeRtosTaskHandle,
+    /// If true, `vTaskDelete` is called on drop. Set to false for tasks
+    /// that should outlive the handle (e.g., the current task).
+    owns_task: bool,
+}
+
+impl Task {
+    /// Spawns a new FreeRTOS task with dynamic memory allocation.
+    ///
+    /// # Arguments
+    /// * `name` — Null-terminated task name (C string)
+    /// * `stack_depth` — Stack depth in words (not bytes)
+    /// * `entry` — Task entry function
+    /// * `param` — Parameter passed to the entry function
+    /// * `priority` — Task priority (0 = idle)
+    pub fn spawn(
+        name: *const u8,
+        stack_depth: FreeRtosConfigStackDepthType,
+        entry: FreeRtosTaskFunction,
+        param: FreeRtosVoidPtr,
+        priority: FreeRtosUBaseType,
+    ) -> Result<Self, crate::base::FreeRtosError> {
+        let mut handle: FreeRtosTaskHandle = core::ptr::null();
+        let result = unsafe {
+            freertos_rs_task_create(entry, name, stack_depth, param, priority, &mut handle)
+        };
+        if result == crate::base::PD_PASS && !handle.is_null() {
+            Ok(Self { handle, owns_task: true })
+        } else {
+            Err(crate::base::FreeRtosError::OutOfMemory)
+        }
+    }
+
+    /// Creates a `Task` from an existing handle without taking ownership.
+    ///
+    /// The task will NOT be deleted when this `Task` is dropped.
+    pub fn from_handle(handle: FreeRtosTaskHandle) -> Self {
+        Self { handle, owns_task: false }
+    }
+
+    /// Creates a `Task` from an existing handle, taking ownership.
+    ///
+    /// The task WILL be deleted when this `Task` is dropped.
+    pub fn from_handle_owned(handle: FreeRtosTaskHandle) -> Self {
+        Self { handle, owns_task: true }
+    }
+
+    /// Returns the raw task handle.
+    pub fn handle(&self) -> FreeRtosTaskHandle {
+        self.handle
+    }
+
+    /// Suspends this task.
+    pub fn suspend(&self) {
+        unsafe { freertos_rs_task_suspend(self.handle) }
+    }
+
+    /// Resumes this task.
+    pub fn resume(&self) {
+        unsafe { freertos_rs_task_resume(self.handle) }
+    }
+
+    /// Resumes this task from ISR context.
+    /// Returns `true` if a context switch should be requested.
+    pub fn resume_from_isr(&self) -> bool {
+        unsafe { freertos_rs_task_resume_from_isr(self.handle) != 0 }
+    }
+
+    /// Gets the task priority.
+    pub fn priority(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_priority_get(self.handle) }
+    }
+
+    /// Sets the task priority.
+    pub fn set_priority(&self, priority: FreeRtosUBaseType) {
+        unsafe { freertos_rs_task_priority_set(self.handle, priority) }
+    }
+
+    /// Gets the task name.
+    pub fn name(&self) -> *const u8 {
+        unsafe { freertos_rs_task_get_name(self.handle) }
+    }
+
+    /// Gets the stack high water mark (minimum free stack space).
+    pub fn stack_high_water_mark(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_task_get_stack_high_water_mark(self.handle) }
+    }
+
+    /// Gets the current task state.
+    pub fn state(&self) -> crate::base::FreeRtosTaskState {
+        let s = unsafe { freertos_rs_task_get_state(self.handle) };
+        match s {
+            0 => crate::base::FreeRtosTaskState::Running,
+            1 => crate::base::FreeRtosTaskState::Ready,
+            2 => crate::base::FreeRtosTaskState::Blocked,
+            3 => crate::base::FreeRtosTaskState::Suspended,
+            4 => crate::base::FreeRtosTaskState::Deleted,
+            _ => crate::base::FreeRtosTaskState::Running,
+        }
+    }
+
+    /// Notifies this task with a value and action.
+    /// Returns the previous notification value (before the action).
+    pub fn notify(&self, value: u32, action: crate::base::FreeRtosNotifyAction) -> FreeRtosBaseType {
+        unsafe { freertos_rs_task_notify(self.handle, value, action as u32) }
+    }
+
+    /// Gives a notification to this task (increments the notification value).
+    pub fn notify_give(&self) -> FreeRtosBaseType {
+        unsafe { freertos_rs_task_notify_give(self.handle) }
+    }
+
+    /// Aborts any delay on this task, making it ready to run.
+    pub fn abort_delay(&self) -> FreeRtosBaseType {
+        unsafe { freertos_rs_task_abort_delay(self.handle) }
+    }
+
+    /// Disables further automatic deletion on drop.
+    /// Use this if you want the task to outlive this handle.
+    pub fn detach(&mut self) {
+        self.owns_task = false;
+    }
+}
+
+impl Drop for Task {
+    fn drop(&mut self) {
+        if self.owns_task && !self.handle.is_null() {
+            unsafe { freertos_rs_task_delete(self.handle) };
+        }
+    }
+}
+
+// Safety: Task handles can be sent between threads/cores.
+unsafe impl Send for Task {}
+
+//===========================================================================
+// SAFE FUNCTIONS - TASK UTILITIES (no handle needed)
+//===========================================================================
+
+/// Delays the current task for the specified number of ticks.
+pub fn delay(ticks: FreeRtosTickType) {
+    unsafe { freertos_rs_task_delay(ticks) }
+}
+
+/// Returns the current tick count.
+pub fn get_tick_count() -> FreeRtosTickType {
+    unsafe { freertos_rs_task_get_tick_count() }
+}
+
+/// Returns the current tick count (ISR-safe).
+pub fn get_tick_count_from_isr() -> FreeRtosTickType {
+    unsafe { freertos_rs_task_get_tick_count_from_isr() }
+}
+
+/// Returns the handle of the currently running task.
+pub fn get_current_task_handle() -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_task_get_current_task_handle() }
+}
+
+/// Returns the idle task handle.
+pub fn get_idle_task_handle() -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_task_get_idle_task_handle() }
+}
+
+/// Returns the total number of tasks.
+pub fn get_number_of_tasks() -> FreeRtosUBaseType {
+    unsafe { freertos_rs_task_get_number_of_tasks() }
+}
+
+/// Starts the FreeRTOS scheduler.
+pub fn start_scheduler() {
+    unsafe { freertos_rs_task_start_scheduler() }
+}
+
+/// Ends the FreeRTOS scheduler.
+pub fn end_scheduler() {
+    unsafe { freertos_rs_task_end_scheduler() }
+}
+
+/// Suspends the scheduler (without disabling interrupts).
+pub fn suspend_all() {
+    unsafe { freertos_rs_task_suspend_all() }
+}
+
+/// Resumes the scheduler. Returns `true` if a context switch is needed.
+pub fn resume_all() -> bool {
+    unsafe { freertos_rs_task_resume_all() != 0 }
+}
+
+/// Waits for a task notification.
+///
+/// Returns the notification value. Clears bits as specified.
+pub fn notify_wait(
+    bits_to_clear_on_entry: u32,
+    bits_to_clear_on_exit: u32,
+    ticks_to_wait: FreeRtosTickType,
+) -> Option<u32> {
+    let mut value: u32 = 0;
+    let result = unsafe {
+        freertos_rs_task_notify_wait(
+            bits_to_clear_on_entry,
+            bits_to_clear_on_exit,
+            &mut value,
+            ticks_to_wait,
+        )
+    };
+    if result == crate::base::PD_TRUE {
+        Some(value)
+    } else {
+        None
+    }
+}
+
+/// Takes a notification (ISR-safe).
+pub fn notify_take(clear_on_exit: bool, ticks_to_wait: FreeRtosTickType) -> u32 {
+    unsafe { freertos_rs_task_notify_take(if clear_on_exit { 1 } else { 0 }, ticks_to_wait) }
+}
 
 //===========================================================================
 // UNIT TESTS

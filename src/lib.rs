@@ -111,7 +111,6 @@
 //! | [`projdefs`]     | `projdefs.h`            | Constants and utility functions    |
 //! | [`atomic`]       | `atomic.h`              | Atomic operations                  |
 //! | [`list`]         | `list.h`                | Linked list operations             |
-//! | [`croutine`]     | `croutine.h`            | Co-routines (deprecated)           |
 //!
 //! # Safety
 //!
@@ -159,7 +158,6 @@ pub mod event_groups;
 pub mod timers;
 pub mod stream_buffer;
 pub mod message_buffer;
-pub mod croutine;
 pub mod atomic;
 pub mod list;
 

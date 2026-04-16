@@ -25,7 +25,7 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTimerHandle, FreeRtosTimerCallback,
-    FreeRtosVoidPtr, FreeRtosUBaseType, FreeRtosError, PD_PASS, PD_TRUE, PD_FALSE, PORT_MAX_DELAY,
+    FreeRtosVoidPtr, FreeRtosUBaseType, FreeRtosPendedFunction, FreeRtosError, PD_PASS, PD_TRUE, PD_FALSE, PORT_MAX_DELAY,
 };
 
 //===========================================================================
@@ -37,7 +37,7 @@ unsafe extern "C" {
     pub fn freertos_rs_timer_create(
         timer_name: *const u8,
         timer_period: FreeRtosTickType,
-        auto_reload: FreeRtosBaseType,
+        auto_reload: FreeRtosUBaseType,
         timer_id: FreeRtosVoidPtr,
         callback_function: FreeRtosTimerCallback,
     ) -> FreeRtosTimerHandle;
@@ -46,7 +46,7 @@ unsafe extern "C" {
     pub fn freertos_rs_timer_create_static(
         timer_name: *const u8,
         timer_period: FreeRtosTickType,
-        auto_reload: FreeRtosBaseType,
+        auto_reload: FreeRtosUBaseType,
         timer_id: FreeRtosVoidPtr,
         callback_function: FreeRtosTimerCallback,
         timer_buffer: FreeRtosVoidPtr,
@@ -182,7 +182,7 @@ unsafe extern "C" {
 
     /// Pends a function call to the timer daemon task.
     pub fn freertos_rs_timer_pend_function_call(
-        function_to_pend: FreeRtosVoidPtr,
+        function_to_pend: FreeRtosPendedFunction,
         parameter1: FreeRtosVoidPtr,
         parameter2: u32,
         ticks_to_wait: FreeRtosTickType,
@@ -190,7 +190,7 @@ unsafe extern "C" {
 
     /// Pends a function call from an ISR.
     pub fn freertos_rs_timer_pend_function_call_from_isr(
-        function_to_pend: FreeRtosVoidPtr,
+        function_to_pend: FreeRtosPendedFunction,
         parameter1: FreeRtosVoidPtr,
         parameter2: u32,
         higher_priority_task_woken: *mut FreeRtosBaseType,
@@ -228,7 +228,7 @@ impl Timer {
             freertos_rs_timer_create(
                 name,
                 period_ticks,
-                if auto_reload { PD_TRUE } else { PD_FALSE },
+                if auto_reload { PD_TRUE as FreeRtosUBaseType } else { PD_FALSE as FreeRtosUBaseType },
                 core::ptr::null_mut(),
                 callback,
             )
@@ -289,7 +289,7 @@ impl Timer {
         unsafe {
             freertos_rs_timer_set_reload_mode(
                 self.handle,
-                if auto_reload { PD_TRUE } else { PD_FALSE },
+                if auto_reload { PD_TRUE as FreeRtosUBaseType } else { PD_FALSE as FreeRtosUBaseType },
             )
         }
     }

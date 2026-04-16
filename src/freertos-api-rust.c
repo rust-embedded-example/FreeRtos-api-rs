@@ -20,7 +20,6 @@
 #include "message_buffer.h"
 #include "atomic.h"
 #include "list.h"
-
 /*===========================================================================
  * TASK CREATION FUNCTIONS
  *===========================================================================*/
@@ -1076,52 +1075,6 @@ TickType_t freertos_rs_ms_to_ticks(const TickType_t xTimeInMs)
 TickType_t freertos_rs_ticks_to_ms(const TickType_t xTimeInTicks)
 {
     return pdTICKS_TO_MS(xTimeInTicks);
-}
-
-/**
- * @brief Get pdTRUE constant value
- * @return BaseType_t - pdTRUE value
- */
-BaseType_t freertos_rs_get_pd_true(void)
-{
-    return pdTRUE;
-}
-
-/**
- * @brief Get pdFALSE constant value
- * @return BaseType_t - pdFALSE value
- */
-BaseType_t freertos_rs_get_pd_false(void)
-{
-    return pdFALSE;
-}
-
-/**
- * @brief Get pdPASS constant value
- * @return BaseType_t - pdPASS value
- */
-BaseType_t freertos_rs_get_pd_pass(void)
-{
-    return pdPASS;
-}
-
-/**
- * @brief Get pdFAIL constant value
- * @return BaseType_t - pdFAIL value
- */
-BaseType_t freertos_rs_get_pd_fail(void)
-{
-    return pdFAIL;
-}
-
-/**
- * @brief Wrapper for portMAX_DELAY constant
- * Gets the portMAX_DELAY constant value
- * @return TickType_t - portMAX_DELAY value
- */
-TickType_t freertos_rs_get_port_max_delay(void)
-{
-    return portMAX_DELAY;
 }
 
 /**
@@ -2999,66 +2952,17 @@ List_t* freertos_rs_list_list_item_container(ListItem_t *pxListItem)
     return listLIST_ITEM_CONTAINER(pxListItem);
 }
 
-/*===========================================================================
- * CO-ROUTINE FUNCTIONS
- *===========================================================================*/
-
-#if (configUSE_CO_ROUTINES == 1)
-
 /**
- * @brief Wrapper for xCoRoutineCreate()
- * Creates a co-routine
- * @param pxCoRoutineCode Pointer to the co-routine function
- * @param uxPriority Priority of the co-routine
- * @param uxIndex Index of the co-routine
- * @return BaseType_t - pdPASS if successful
+ * @brief Wrapper for listIS_CONTAINED_WITHIN()
+ * Checks if a list item is contained within a specific list
+ * @param pxList Pointer to the list to check
+ * @param pxListItem Pointer to the list item
+ * @return BaseType_t - pdTRUE if item is in the list, pdFALSE otherwise
  */
-BaseType_t freertos_rs_co_routine_create(crCOROUTINE_CODE pxCoRoutineCode, UBaseType_t uxPriority, UBaseType_t uxIndex)
+BaseType_t freertos_rs_list_is_contained_within(const List_t *pxList, const ListItem_t *pxListItem)
 {
-    return xCoRoutineCreate(pxCoRoutineCode, uxPriority, uxIndex);
+    return listIS_CONTAINED_WITHIN(pxList, pxListItem);
 }
-
-/**
- * @brief Wrapper for vCoRoutineSchedule()
- * Schedules co-routines
- */
-void freertos_rs_co_routine_schedule(void)
-{
-    vCoRoutineSchedule();
-}
-
-/**
- * @brief Wrapper for vCoRoutineAddToDelayedList()
- * Adds a co-routine to the delayed list
- * @param xTicksToDelay Number of ticks to delay
- * @param pxEventList Pointer to event list (can be NULL)
- */
-void freertos_rs_co_routine_add_to_delayed_list(TickType_t xTicksToDelay, List_t *pxEventList)
-{
-    vCoRoutineAddToDelayedList(xTicksToDelay, pxEventList);
-}
-
-/**
- * @brief Wrapper for xCoRoutineRemoveFromEventList()
- * Removes a co-routine from an event list
- * @param pxEventList Pointer to the event list
- * @return BaseType_t - pdTRUE if a co-routine was removed
- */
-BaseType_t freertos_rs_co_routine_remove_from_event_list(const List_t *pxEventList)
-{
-    return xCoRoutineRemoveFromEventList(pxEventList);
-}
-
-/**
- * @brief Wrapper for vCoRoutineResetState()
- * Resets the co-routine state
- */
-void freertos_rs_co_routine_reset_state(void)
-{
-    vCoRoutineResetState();
-}
-
-#endif /* configUSE_CO_ROUTINES */
 
 /*===========================================================================
  * ADDITIONAL TASK FUNCTIONS
@@ -3586,64 +3490,6 @@ void freertos_rs_port_define_heap_regions(const void * const pxHeapRegions)
 /*===========================================================================
  * MISSING API ADDITIONS - GAP ANALYSIS COMPLETION
  *===========================================================================*/
-
-/*===========================================================================
- * QUEUE - CO-ROUTINE QUEUE OPERATIONS
- *===========================================================================*/
-
-#if (configUSE_CO_ROUTINES == 1)
-/**
- * @brief Wrapper for xQueueCRSend()
- * Sends an item to a queue from a co-routine
- * @param xQueue Queue handle
- * @param pvItemToQueue Pointer to item to send
- * @param xTicksToWait Ticks to wait
- * @return BaseType_t - pdPASS or errQUEUE_FULL
- */
-BaseType_t freertos_rs_queue_cr_send(QueueHandle_t xQueue, const void * const pvItemToQueue, TickType_t xTicksToWait)
-{
-    return xQueueCRSend(xQueue, pvItemToQueue, xTicksToWait);
-}
-
-/**
- * @brief Wrapper for xQueueCRReceive()
- * Receives an item from a queue in a co-routine
- * @param xQueue Queue handle
- * @param pvBuffer Pointer to buffer for received item
- * @param xTicksToWait Ticks to wait
- * @return BaseType_t - pdPASS or errQUEUE_EMPTY
- */
-BaseType_t freertos_rs_queue_cr_receive(QueueHandle_t xQueue, void * const pvBuffer, TickType_t xTicksToWait)
-{
-    return xQueueCRReceive(xQueue, pvBuffer, xTicksToWait);
-}
-
-/**
- * @brief Wrapper for xQueueCRSendFromISR()
- * Sends an item to a queue from a co-routine ISR
- * @param xQueue Queue handle
- * @param pvItemToQueue Pointer to item to send
- * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
- * @return BaseType_t - pdPASS or errQUEUE_FULL
- */
-BaseType_t freertos_rs_queue_cr_send_from_isr(QueueHandle_t xQueue, const void * const pvItemToQueue, BaseType_t * const pxHigherPriorityTaskWoken)
-{
-    return xQueueCRSendFromISR(xQueue, pvItemToQueue, pxHigherPriorityTaskWoken);
-}
-
-/**
- * @brief Wrapper for xQueueCRReceiveFromISR()
- * Receives an item from a queue in a co-routine ISR
- * @param xQueue Queue handle
- * @param pvBuffer Pointer to buffer for received item
- * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
- * @return BaseType_t - pdPASS or errQUEUE_EMPTY
- */
-BaseType_t freertos_rs_queue_cr_receive_from_isr(QueueHandle_t xQueue, void * const pvBuffer, BaseType_t * const pxHigherPriorityTaskWoken)
-{
-    return xQueueCRReceiveFromISR(xQueue, pvBuffer, pxHigherPriorityTaskWoken);
-}
-#endif /* configUSE_CO_ROUTINES */
 
 /*===========================================================================
  * QUEUE - RESTRICTED WAIT

@@ -7,7 +7,7 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosMessageBufferHandle, FreeRtosVoidPtr,
-    FreeRtosError, PD_PASS, PD_TRUE, FreeRtosStreamBufferCallbackFunction,
+    FreeRtosConstVoidPtr, FreeRtosError, PD_PASS, PD_TRUE, FreeRtosStreamBufferCallbackFunction,
 };
 
 //===========================================================================
@@ -61,7 +61,7 @@ unsafe extern "C" {
     /// Sends a message. Returns the number of bytes sent (0 on timeout or full).
     pub fn freertos_rs_message_buffer_send(
         message_buffer: FreeRtosMessageBufferHandle,
-        message: *const FreeRtosVoidPtr,
+        message: FreeRtosConstVoidPtr,
         message_length_bytes: usize,
         ticks_to_wait: FreeRtosTickType,
     ) -> usize;
@@ -93,7 +93,7 @@ unsafe extern "C" {
     /// Sends a message from an ISR.
     pub fn freertos_rs_message_buffer_send_from_isr(
         message_buffer: FreeRtosMessageBufferHandle,
-        message: *const FreeRtosVoidPtr,
+        message: FreeRtosConstVoidPtr,
         message_length_bytes: usize,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> usize;
@@ -188,7 +188,7 @@ impl MessageBuffer {
         unsafe {
             freertos_rs_message_buffer_send(
                 self.handle,
-                message.as_ptr() as *const FreeRtosVoidPtr,
+                message.as_ptr() as FreeRtosConstVoidPtr,
                 message.len(),
                 ticks_to_wait,
             )
@@ -248,7 +248,7 @@ impl MessageBuffer {
         unsafe {
             freertos_rs_message_buffer_send_from_isr(
                 self.handle,
-                message.as_ptr() as *const FreeRtosVoidPtr,
+                message.as_ptr() as FreeRtosConstVoidPtr,
                 message.len(),
                 higher_priority_task_woken,
             )

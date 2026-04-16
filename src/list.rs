@@ -74,6 +74,13 @@ unsafe extern "C" {
 
     /// Gets the container list of a list item.
     pub fn freertos_rs_list_list_item_container(list_item: FreeRtosListItemHandle) -> FreeRtosListHandle;
+
+    /// Checks if a list item is contained within a specific list.
+    /// Returns `PD_TRUE` if the item is in the list, `PD_FALSE` otherwise.
+    pub fn freertos_rs_list_is_contained_within(
+        list: FreeRtosListHandle,
+        list_item: FreeRtosListItemHandle,
+    ) -> FreeRtosBaseType;
 }
 
 //===========================================================================

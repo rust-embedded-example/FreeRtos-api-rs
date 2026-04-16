@@ -38,21 +38,6 @@ unsafe extern "C" {
     /// Converts ticks to milliseconds (runtime version).
     pub fn freertos_rs_ticks_to_ms(time_in_ticks: FreeRtosTickType) -> FreeRtosTickType;
 
-    /// Returns the `pdTRUE` constant value from FreeRTOS config.
-    pub fn freertos_rs_get_pd_true() -> FreeRtosBaseType;
-
-    /// Returns the `pdFALSE` constant value from FreeRTOS config.
-    pub fn freertos_rs_get_pd_false() -> FreeRtosBaseType;
-
-    /// Returns the `pdPASS` constant value from FreeRTOS config.
-    pub fn freertos_rs_get_pd_pass() -> FreeRtosBaseType;
-
-    /// Returns the `pdFAIL` constant value from FreeRTOS config.
-    pub fn freertos_rs_get_pd_fail() -> FreeRtosBaseType;
-
-    /// Returns the `portMAX_DELAY` constant value from FreeRTOS config.
-    pub fn freertos_rs_get_port_max_delay() -> FreeRtosTickType;
-
     /// Returns the `portTICK_PERIOD_MS` constant value from FreeRTOS config.
     pub fn freertos_rs_get_port_tick_period_ms() -> FreeRtosTickType;
 }

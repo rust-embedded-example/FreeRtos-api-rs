@@ -23,7 +23,7 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosQueueHandle, FreeRtosUBaseType,
-    FreeRtosVoidPtr, FreeRtosQueueSetHandle, FreeRtosQueueSetMemberHandle,
+    FreeRtosVoidPtr, FreeRtosConstVoidPtr, FreeRtosQueueSetHandle, FreeRtosQueueSetMemberHandle,
     FreeRtosTaskHandle, FreeRtosError, PD_PASS,
 };
 
@@ -60,21 +60,21 @@ unsafe extern "C" {
     /// Wraps `xQueueSend()` (backwards-compatible alias for `xQueueSendToBack`).
     pub fn freertos_rs_queue_send(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
     /// Sends an item to the front of a queue.
     pub fn freertos_rs_queue_send_to_front(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
     /// Sends an item to the back of a queue (explicit).
     pub fn freertos_rs_queue_send_to_back(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         ticks_to_wait: FreeRtosTickType,
     ) -> FreeRtosBaseType;
 
@@ -95,13 +95,13 @@ unsafe extern "C" {
     /// Overwrites an item in a length-1 queue.
     pub fn freertos_rs_queue_overwrite(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
     ) -> FreeRtosBaseType;
 
     /// Generic send with explicit copy position.
     pub fn freertos_rs_queue_generic_send(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         ticks_to_wait: FreeRtosTickType,
         copy_position: FreeRtosBaseType,
     ) -> FreeRtosBaseType;
@@ -126,21 +126,21 @@ unsafe extern "C" {
     /// Wraps `xQueueSendFromISR()` (backwards-compatible alias for `xQueueSendToBackFromISR`).
     pub fn freertos_rs_queue_send_from_isr(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
     /// Sends to the front of a queue from an ISR.
     pub fn freertos_rs_queue_send_to_front_from_isr(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
     /// Sends to the back of a queue from an ISR (explicit).
     pub fn freertos_rs_queue_send_to_back_from_isr(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
@@ -164,14 +164,14 @@ unsafe extern "C" {
     /// Overwrites from an ISR.
     pub fn freertos_rs_queue_overwrite_from_isr(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
     /// Generic send from ISR.
     pub fn freertos_rs_queue_generic_send_from_isr(
         queue: FreeRtosQueueHandle,
-        item_to_queue: *const FreeRtosVoidPtr,
+        item_to_queue: FreeRtosConstVoidPtr,
         higher_priority_task_woken: *mut FreeRtosBaseType,
         copy_position: FreeRtosBaseType,
     ) -> FreeRtosBaseType;
@@ -390,7 +390,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send(
                 self.handle,
-                item as *const T as *const FreeRtosVoidPtr,
+                item as *const T as FreeRtosConstVoidPtr,
                 ticks_to_wait,
             )
         };
@@ -406,7 +406,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send_to_front(
                 self.handle,
-                item as *const T as *const FreeRtosVoidPtr,
+                item as *const T as FreeRtosConstVoidPtr,
                 ticks_to_wait,
             )
         };
@@ -484,7 +484,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send_from_isr(
                 self.handle,
-                item as *const T as *const FreeRtosVoidPtr,
+                item as *const T as FreeRtosConstVoidPtr,
                 higher_priority_task_woken,
             )
         };
@@ -522,7 +522,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_overwrite(
                 self.handle,
-                item as *const T as *const FreeRtosVoidPtr,
+                item as *const T as FreeRtosConstVoidPtr,
             )
         };
         if result == PD_PASS {
@@ -543,7 +543,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_overwrite_from_isr(
                 self.handle,
-                item as *const T as *const FreeRtosVoidPtr,
+                item as *const T as FreeRtosConstVoidPtr,
                 higher_priority_task_woken,
             )
         };
@@ -577,6 +577,107 @@ impl<T> Drop for Queue<T> {
 // the internal synchronization.
 unsafe impl<T: Send> Send for Queue<T> {}
 unsafe impl<T: Send> Sync for Queue<T> {}
+
+//===========================================================================
+// SAFE WRAPPER - QUEUE SET
+//===========================================================================
+
+/// A FreeRTOS queue set for multiplexing multiple queues/semaphores.
+///
+/// Allows a task to block on multiple queues or semaphores simultaneously,
+/// waking when any member has data available. Created with
+/// [`QueueSet::new`].
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use freertos_api_rs::queue::{Queue, QueueSet};
+///
+/// let queue1: Queue<u32> = Queue::new(5).unwrap();
+/// let queue2: Queue<u32> = Queue::new(5).unwrap();
+/// let qset = QueueSet::new(10).unwrap();
+/// qset.add(&queue1);
+/// qset.add(&queue2);
+///
+/// // Block until one of the queues has data
+/// if let Some(handle) = qset.select(100) {
+///     // handle is the QueueHandle of the queue that has data
+/// }
+/// ```
+pub struct QueueSet {
+    handle: FreeRtosQueueSetHandle,
+}
+
+impl QueueSet {
+    /// Creates a new queue set with the given combined event queue length.
+    ///
+    /// The `event_queue_length` must be at least the sum of the lengths of
+    /// all queues that will be added to this set.
+    pub fn new(event_queue_length: FreeRtosUBaseType) -> Result<Self, FreeRtosError> {
+        let handle = unsafe { freertos_rs_queue_create_set(event_queue_length) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Adds a queue or semaphore to this set.
+    pub fn add<T>(&self, queue: &Queue<T>) -> bool {
+        unsafe {
+            freertos_rs_queue_add_to_set(queue.handle as FreeRtosQueueSetMemberHandle, self.handle)
+                == crate::base::PD_PASS
+        }
+    }
+
+    /// Removes a queue or semaphore from this set.
+    pub fn remove<T>(&self, queue: &Queue<T>) -> bool {
+        unsafe {
+            freertos_rs_queue_remove_from_set(
+                queue.handle as FreeRtosQueueSetMemberHandle,
+                self.handle,
+            ) == crate::base::PD_PASS
+        }
+    }
+
+    /// Blocks until a member of the set has data, or `ticks_to_wait` expires.
+    ///
+    /// Returns the handle of the queue/semaphore that has data available,
+    /// or `None` on timeout.
+    pub fn select(&self, ticks_to_wait: FreeRtosTickType) -> Option<FreeRtosQueueSetMemberHandle> {
+        let result = unsafe { freertos_rs_queue_select_from_set(self.handle, ticks_to_wait) };
+        if result.is_null() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+
+    /// Non-blocking select from ISR context.
+    ///
+    /// Returns the handle of the queue/semaphore that has data available,
+    /// or `None` if nothing is available.
+    pub fn select_from_isr(&self) -> Option<FreeRtosQueueSetMemberHandle> {
+        let result = unsafe { freertos_rs_queue_select_from_set_from_isr(self.handle) };
+        if result.is_null() {
+            None
+        } else {
+            Some(result)
+        }
+    }
+}
+
+impl Drop for QueueSet {
+    fn drop(&mut self) {
+        // Queue sets are deleted implicitly when all member queues are deleted.
+        // There is no vQueueSetDelete in FreeRTOS - the set is freed when
+        // all members are removed. We just drop our handle.
+    }
+}
+
+// Safety: QueueSet handles are safe to share between threads.
+unsafe impl Send for QueueSet {}
+unsafe impl Sync for QueueSet {}
 
 //===========================================================================
 // UNIT TESTS

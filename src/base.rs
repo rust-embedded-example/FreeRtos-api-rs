@@ -230,7 +230,7 @@ pub struct FreeRtosTimeOut {
 ///
 /// Used with `vPortGetHeapStats()` to retrieve detailed heap allocation
 /// information from the FreeRTOS memory manager.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 pub struct FreeRtosHeapStats {
     /// Size of the largest free block in the heap.

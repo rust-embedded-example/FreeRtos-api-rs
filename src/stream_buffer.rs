@@ -8,7 +8,7 @@
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosStreamBufferHandle, FreeRtosVoidPtr,
-    FreeRtosUBaseType, FreeRtosError, PD_PASS, PD_TRUE,
+    FreeRtosConstVoidPtr, FreeRtosUBaseType, FreeRtosError, PD_PASS, PD_TRUE,
     FreeRtosStreamBufferCallbackFunction,
 };
 
@@ -118,7 +118,7 @@ unsafe extern "C" {
     /// Sends data to a stream buffer.
     pub fn freertos_rs_stream_buffer_send(
         stream_buffer: FreeRtosStreamBufferHandle,
-        data: *const FreeRtosVoidPtr,
+        data: FreeRtosConstVoidPtr,
         data_length_bytes: usize,
         ticks_to_wait: FreeRtosTickType,
     ) -> usize;
@@ -178,7 +178,7 @@ unsafe extern "C" {
     /// Sends data to a stream buffer from an ISR.
     pub fn freertos_rs_stream_buffer_send_from_isr(
         stream_buffer: FreeRtosStreamBufferHandle,
-        data: *const FreeRtosVoidPtr,
+        data: FreeRtosConstVoidPtr,
         data_length_bytes: usize,
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> usize;
@@ -279,7 +279,7 @@ impl StreamBuffer {
         unsafe {
             freertos_rs_stream_buffer_send(
                 self.handle,
-                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.as_ptr() as FreeRtosConstVoidPtr,
                 data.len(),
                 ticks_to_wait,
             )
@@ -337,7 +337,7 @@ impl StreamBuffer {
         unsafe {
             freertos_rs_stream_buffer_send_from_isr(
                 self.handle,
-                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.as_ptr() as FreeRtosConstVoidPtr,
                 data.len(),
                 higher_priority_task_woken,
             )
@@ -415,7 +415,7 @@ impl BatchingBuffer {
         unsafe {
             freertos_rs_stream_buffer_send(
                 self.handle,
-                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.as_ptr() as FreeRtosConstVoidPtr,
                 data.len(),
                 ticks_to_wait,
             )
@@ -478,7 +478,7 @@ impl BatchingBuffer {
         unsafe {
             freertos_rs_stream_buffer_send_from_isr(
                 self.handle,
-                data.as_ptr() as *const FreeRtosVoidPtr,
+                data.as_ptr() as FreeRtosConstVoidPtr,
                 data.len(),
                 higher_priority_task_woken,
             )
