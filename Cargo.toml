@@ -10,12 +10,10 @@ keywords = ["freertos", "rtos", "embedded", "no-std"]
 categories = ["embedded", "no-std", "api-bindings"]
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "lib"]
 
 [profile.dev]
 panic = "abort"
 
 [profile.release]
 panic = "abort"
-
-

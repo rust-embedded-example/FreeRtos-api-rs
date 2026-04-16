@@ -686,7 +686,7 @@ impl Drop for CriticalSectionFromIsr {
 ///
 /// let task = unsafe { freertos_rs_task_get_current_task_handle() };
 /// {
-///     let _guard = PreemptionGuard::disable(task);
+///     let _guard = unsafe { PreemptionGuard::disable(task) };
 ///     // This task will not be preempted in this scope
 /// } // Preemption re-enabled on drop
 /// ```
@@ -738,13 +738,13 @@ unsafe impl Send for PreemptionGuard {}
 ///     }
 /// }
 ///
-/// let task = Task::spawn(
+/// let task = unsafe { Task::spawn(
 ///     b"my_task\0".as_ptr(),
 ///     128,
 ///     my_task,
 ///     core::ptr::null_mut(),
 ///     TSK_IDLE_PRIORITY + 1,
-/// ).expect("Failed to create task");
+/// ).expect("Failed to create task") };
 ///
 /// // task is deleted when `task` goes out of scope
 /// ```
@@ -1097,12 +1097,13 @@ pub fn get_current_stack_high_water_mark() -> FreeRtosUBaseType {
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-// Send trait bounds
+// Send trait bounds for RAII guards
 const _: () = {
     const fn assert_send<T: Send>() {}
     assert_send::<CriticalSection>();
     assert_send::<CriticalSectionFromIsr>();
     assert_send::<PreemptionGuard>();
+    assert_send::<Task>();
 };
 
 // Constants
@@ -1110,3 +1111,9 @@ const _: () = assert!(crate::base::PD_PASS == 1);
 const _: () = assert!(crate::base::PD_TRUE == 1);
 const _: () = assert!(crate::base::PD_FALSE == 0);
 const _: () = assert!(crate::base::PORT_MAX_DELAY == 0xFFFFFFFF);
+
+// FreeRtosTaskFunction signature check
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskFunction>() > 0);
+
+// FreeRtosTimeOut layout matches C TimeOut_t
+const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == core::mem::size_of::<FreeRtosBaseType>() + core::mem::size_of::<FreeRtosTickType>());

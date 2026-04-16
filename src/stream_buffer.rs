@@ -527,3 +527,7 @@ const _: () = {
 const _: () = assert!(SB_TYPE_STREAM_BUFFER == 0);
 const _: () = assert!(SB_TYPE_MESSAGE_BUFFER == 1);
 const _: () = assert!(SB_TYPE_STREAM_BATCHING_BUFFER == 2);
+
+// StreamBuffer and BatchingBuffer are pointer-sized
+const _: () = assert!(core::mem::size_of::<StreamBuffer>() == core::mem::size_of::<FreeRtosStreamBufferHandle>());
+const _: () = assert!(core::mem::size_of::<BatchingBuffer>() == core::mem::size_of::<FreeRtosStreamBufferHandle>());

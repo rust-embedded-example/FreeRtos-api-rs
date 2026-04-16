@@ -59,14 +59,14 @@ pub const TASK_SCHEDULER_SUSPENDED: FreeRtosBaseType = 2;
 // ERROR CODE CONSTANTS (projdefs.h / queue.h)
 //===========================================================================
 
-/// Queue is empty (`errQUEUE_EMPTY`).
-pub const ERR_QUEUE_EMPTY: FreeRtosBaseType = -1;
+/// Queue is empty (`errQUEUE_EMPTY`). Value is 0 (same as `pdFAIL`).
+pub const ERR_QUEUE_EMPTY: FreeRtosBaseType = 0;
 
-/// Queue is full (`errQUEUE_FULL`).
-pub const ERR_QUEUE_FULL: FreeRtosBaseType = -2;
+/// Queue is full (`errQUEUE_FULL`). Value is 0 (same as `pdFAIL`).
+pub const ERR_QUEUE_FULL: FreeRtosBaseType = 0;
 
 /// Memory allocation failed (`errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY`).
-pub const ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY: FreeRtosBaseType = -3;
+pub const ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY: FreeRtosBaseType = -1;
 
 /// Queue blocked (`errQUEUE_BLOCKED`).
 pub const ERR_QUEUE_BLOCKED: FreeRtosBaseType = -4;
@@ -128,9 +128,9 @@ const _: () = assert!(pdFAIL == 0);
 const _: () = assert!(ms_to_ticks(100) == 100);
 const _: () = assert!(ticks_to_ms(100) == 100);
 
-const _: () = assert!(ERR_QUEUE_EMPTY == -1);
-const _: () = assert!(ERR_QUEUE_FULL == -2);
-const _: () = assert!(ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY == -3);
+const _: () = assert!(ERR_QUEUE_EMPTY == 0);
+const _: () = assert!(ERR_QUEUE_FULL == 0);
+const _: () = assert!(ERR_COULD_NOT_ALLOCATE_REQUIRED_MEMORY == -1);
 const _: () = assert!(ERR_QUEUE_BLOCKED == -4);
 const _: () = assert!(ERR_QUEUE_YIELD == -5);
 

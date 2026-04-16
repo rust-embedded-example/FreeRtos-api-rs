@@ -13,12 +13,12 @@
 //!     // Timer expired
 //! }
 //!
-//! let timer = Timer::new(
+//! let timer = unsafe { Timer::new(
 //!     b"MyTimer\0".as_ptr(),
 //!     100,   // 100 ticks period
 //!     true,  // auto-reload
 //!     my_timer_callback,
-//! ).expect("timer create failed");
+//! ).expect("timer create failed") };
 //!
 //! timer.start(0);
 //! ```
@@ -364,3 +364,6 @@ const _: () = {
     const fn assert_send<T: Send>() {}
     assert_send::<Timer>();
 };
+
+// Timer is pointer-sized (just a handle)
+const _: () = assert!(core::mem::size_of::<Timer>() == core::mem::size_of::<FreeRtosTimerHandle>());

@@ -492,3 +492,13 @@ const _: () = {
     assert_send::<Mutex>();
     assert_send::<RecursiveMutex>();
 };
+
+// Wrapper types are pointer-sized (handle only, no extra fields except Mutex with bool)
+const _: () = assert!(core::mem::size_of::<BinarySemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
+const _: () = assert!(core::mem::size_of::<CountingSemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
+const _: () = assert!(core::mem::size_of::<RecursiveMutex>() == core::mem::size_of::<FreeRtosMutexHandle>());
+
+// Semaphore constants match FreeRTOS
+const _: () = assert!(SEM_BINARY_SEMAPHORE_QUEUE_LENGTH == 1);
+const _: () = assert!(SEM_SEMAPHORE_QUEUE_ITEM_LENGTH == 0);
+const _: () = assert!(SEM_GIVE_BLOCK_TIME == 0);

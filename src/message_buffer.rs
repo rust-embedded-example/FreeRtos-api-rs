@@ -290,3 +290,6 @@ const _: () = {
     const fn assert_send<T: Send>() {}
     assert_send::<MessageBuffer>();
 };
+
+// MessageBuffer is pointer-sized
+const _: () = assert!(core::mem::size_of::<MessageBuffer>() == core::mem::size_of::<FreeRtosMessageBufferHandle>());

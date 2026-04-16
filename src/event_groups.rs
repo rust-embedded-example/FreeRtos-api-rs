@@ -257,3 +257,6 @@ const _: () = {
     assert_send::<EventGroup>();
     assert_sync::<EventGroup>();
 };
+
+// EventGroup is pointer-sized
+const _: () = assert!(core::mem::size_of::<EventGroup>() == core::mem::size_of::<FreeRtosEventGroupHandle>());

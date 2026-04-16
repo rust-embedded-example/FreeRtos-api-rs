@@ -686,9 +686,18 @@ unsafe impl Sync for QueueSet {}
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
+// Thread safety: Queue<T: Send> is Send, Queue<T: Send+Sync> is Sync
 const _: () = {
     const fn assert_send<T: Send>() {}
     const fn assert_sync<T: Sync>() {}
     assert_send::<Queue<u32>>();
     assert_sync::<Queue<u32>>();
+    assert_send::<QueueSet>();
+    assert_sync::<QueueSet>();
 };
+
+// Queue<T> has correct PhantomData — zero size overhead
+const _: () = assert!(core::mem::size_of::<Queue<u32>>() == core::mem::size_of::<FreeRtosQueueHandle>());
+
+// QueueSet is pointer-sized
+const _: () = assert!(core::mem::size_of::<QueueSet>() == core::mem::size_of::<FreeRtosQueueSetHandle>());
