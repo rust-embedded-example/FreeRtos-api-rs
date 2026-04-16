@@ -1281,6 +1281,18 @@ BaseType_t freertos_rs_queue_send_to_back_from_isr(QueueHandle_t xQueue, const v
 }
 
 /**
+ * @brief Wrapper for xQueueGiveFromISR()
+ * Gives to a queue from an ISR without copying data (semaphore use case)
+ * @param xQueue Queue handle (must have item size 0, i.e. used as semaphore)
+ * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
+ * @return BaseType_t - pdTRUE if a context switch is needed
+ */
+BaseType_t freertos_rs_queue_give_from_isr(QueueHandle_t xQueue, BaseType_t* pxHigherPriorityTaskWoken)
+{
+    return xQueueGiveFromISR(xQueue, pxHigherPriorityTaskWoken);
+}
+
+/**
  * @brief Wrapper for xQueueReceiveFromISR()
  * Receives an item from a queue from an ISR
  * @param xQueue Queue handle

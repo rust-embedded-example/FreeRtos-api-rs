@@ -151,6 +151,16 @@ unsafe extern "C" {
         higher_priority_task_woken: *mut FreeRtosBaseType,
     ) -> FreeRtosBaseType;
 
+    /// Gives to a queue from ISR without copying data.
+    ///
+    /// Wraps `xQueueGiveFromISR()`. Use with queues that have item size 0
+    /// (i.e., queues used as counting semaphores). Returns `pdTRUE` if a
+    /// context switch is needed.
+    pub fn freertos_rs_queue_give_from_isr(
+        queue: FreeRtosQueueHandle,
+        higher_priority_task_woken: *mut FreeRtosBaseType,
+    ) -> FreeRtosBaseType;
+
     /// Overwrites from an ISR.
     pub fn freertos_rs_queue_overwrite_from_isr(
         queue: FreeRtosQueueHandle,
