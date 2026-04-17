@@ -355,6 +355,7 @@ impl Drop for Timer {
 }
 
 unsafe impl Send for Timer {}
+unsafe impl Sync for Timer {}
 
 //===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
@@ -362,7 +363,9 @@ unsafe impl Send for Timer {}
 
 const _: () = {
     const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
     assert_send::<Timer>();
+    assert_sync::<Timer>();
 };
 
 // Timer is pointer-sized (just a handle)

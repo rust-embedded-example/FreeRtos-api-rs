@@ -843,7 +843,7 @@ impl Task {
             2 => crate::base::FreeRtosTaskState::Blocked,
             3 => crate::base::FreeRtosTaskState::Suspended,
             4 => crate::base::FreeRtosTaskState::Deleted,
-            _ => crate::base::FreeRtosTaskState::Running,
+            _ => crate::base::FreeRtosTaskState::Suspended,
         }
     }
 

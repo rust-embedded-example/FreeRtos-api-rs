@@ -281,6 +281,7 @@ impl Drop for MessageBuffer {
 }
 
 unsafe impl Send for MessageBuffer {}
+unsafe impl Sync for MessageBuffer {}
 
 //===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
@@ -288,7 +289,9 @@ unsafe impl Send for MessageBuffer {}
 
 const _: () = {
     const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
     assert_send::<MessageBuffer>();
+    assert_sync::<MessageBuffer>();
 };
 
 // MessageBuffer is pointer-sized

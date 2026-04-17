@@ -12,12 +12,14 @@
 //! ```rust,no_run
 //! use freertos_api_rs::semphr::Mutex;
 //!
-//! let mut mutex = Mutex::new().expect("mutex create failed");
+//! let mutex = Mutex::new().expect("mutex create failed");
 //! if mutex.lock(100) {
 //!     // Critical section — exclusive access
 //!     mutex.unlock();
 //! }
 //! ```
+
+use core::cell::Cell;
 
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosSemaphoreHandle, FreeRtosMutexHandle,
@@ -344,7 +346,7 @@ unsafe impl Sync for CountingSemaphore {}
 /// priority is temporarily elevated (priority inheritance).
 pub struct Mutex {
     handle: FreeRtosMutexHandle,
-    owned: bool,
+    owned: Cell<bool>,
 }
 
 impl Mutex {
@@ -356,7 +358,7 @@ impl Mutex {
         } else {
             Ok(Self {
                 handle,
-                owned: false,
+                owned: Cell::new(false),
             })
         }
     }
@@ -372,18 +374,18 @@ impl Mutex {
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
-            Ok(Self { handle, owned: false })
+            Ok(Self { handle, owned: Cell::new(false) })
         }
     }
 
     /// Acquires the mutex, blocking up to `ticks_to_wait`.
     ///
     /// Returns `true` if the mutex was successfully acquired.
-    pub fn lock(&mut self, ticks_to_wait: FreeRtosTickType) -> bool {
+    pub fn lock(&self, ticks_to_wait: FreeRtosTickType) -> bool {
         let result =
             unsafe { freertos_rs_semaphore_take(self.handle as FreeRtosSemaphoreHandle, ticks_to_wait) };
         if result == PD_PASS {
-            self.owned = true;
+            self.owned.set(true);
             true
         } else {
             false
@@ -393,10 +395,10 @@ impl Mutex {
     /// Releases the mutex.
     ///
     /// Returns `true` if the mutex was successfully released.
-    pub fn unlock(&mut self) -> bool {
+    pub fn unlock(&self) -> bool {
         let result = unsafe { freertos_rs_semaphore_give(self.handle as FreeRtosSemaphoreHandle) };
         if result == PD_PASS {
-            self.owned = false;
+            self.owned.set(false);
             true
         } else {
             false
@@ -405,7 +407,7 @@ impl Mutex {
 
     /// Returns whether this mutex is currently held (locked).
     pub fn is_owned(&self) -> bool {
-        self.owned
+        self.owned.get()
     }
 
     /// Returns the handle of the task currently holding this mutex, or `NULL` if unheld.
@@ -421,7 +423,7 @@ impl Mutex {
 
 impl Drop for Mutex {
     fn drop(&mut self) {
-        if self.owned {
+        if self.owned.get() {
             self.unlock();
         }
         if !self.handle.is_null() {
@@ -431,6 +433,7 @@ impl Drop for Mutex {
 }
 
 unsafe impl Send for Mutex {}
+unsafe impl Sync for Mutex {}
 
 //===========================================================================
 // SAFE WRAPPER - RECURSIVE MUTEX
@@ -477,6 +480,7 @@ impl Drop for RecursiveMutex {
 }
 
 unsafe impl Send for RecursiveMutex {}
+unsafe impl Sync for RecursiveMutex {}
 
 //===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
@@ -490,7 +494,9 @@ const _: () = {
     assert_send::<CountingSemaphore>();
     assert_sync::<CountingSemaphore>();
     assert_send::<Mutex>();
+    assert_sync::<Mutex>();
     assert_send::<RecursiveMutex>();
+    assert_sync::<RecursiveMutex>();
 };
 
 // Wrapper types are pointer-sized (handle only, no extra fields except Mutex with bool)

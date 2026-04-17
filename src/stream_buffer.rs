@@ -383,6 +383,7 @@ impl Drop for StreamBuffer {
 }
 
 unsafe impl Send for StreamBuffer {}
+unsafe impl Sync for StreamBuffer {}
 
 //===========================================================================
 // SAFE WRAPPER - BATCHING STREAM BUFFER
@@ -513,6 +514,7 @@ impl Drop for BatchingBuffer {
 }
 
 unsafe impl Send for BatchingBuffer {}
+unsafe impl Sync for BatchingBuffer {}
 
 //===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
@@ -520,8 +522,11 @@ unsafe impl Send for BatchingBuffer {}
 
 const _: () = {
     const fn assert_send<T: Send>() {}
+    const fn assert_sync<T: Sync>() {}
     assert_send::<StreamBuffer>();
+    assert_sync::<StreamBuffer>();
     assert_send::<BatchingBuffer>();
+    assert_sync::<BatchingBuffer>();
 };
 
 const _: () = assert!(SB_TYPE_STREAM_BUFFER == 0);

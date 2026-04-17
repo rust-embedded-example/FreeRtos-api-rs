@@ -268,7 +268,7 @@ pub struct FreeRtosHeapStats {
 /// | `SetValueWithOverwrite`    | `eSetValueWithOverwrite`         |
 /// | `SetValueWithoutOverwrite` | `eSetValueWithoutOverwrite`      |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
+#[repr(i32)]
 pub enum FreeRtosNotifyAction {
     /// No action — just notify without modifying the value.
     NoAction = 0,
@@ -286,7 +286,7 @@ pub enum FreeRtosNotifyAction {
 ///
 /// Determines where in the queue a new item is placed.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
+#[repr(i32)]
 pub enum FreeRtosQueueSendPosition {
     /// Send to the back of the queue (FIFO order).
     SendToBack = 0,
@@ -300,7 +300,7 @@ pub enum FreeRtosQueueSendPosition {
 ///
 /// Used internally by the timer command queue.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
+#[repr(i32)]
 pub enum FreeRtosTimerCommand {
     /// Start a timer from a task context.
     Start = 0,
