@@ -1,8 +1,8 @@
-//! FreeRTOS queue management module.
+//! `FreeRTOS` queue management module.
 //!
-//! Provides FFI bindings and a safe generic `Queue<T>` wrapper for FreeRTOS
+//! Provides FFI bindings and a safe generic `Queue<T>` wrapper for `FreeRTOS`
 //! queue operations. Queues are the primary inter-task communication mechanism
-//! in FreeRTOS, supporting FIFO, LIFO (front-send), and overwrite semantics.
+//! in `FreeRTOS`, supporting FIFO, LIFO (front-send), and overwrite semantics.
 //!
 //! # Safe Wrapper
 //!
@@ -339,7 +339,7 @@ unsafe extern "C" {
 // SAFE WRAPPER - QUEUE<T>
 //===========================================================================
 
-/// A type-safe FreeRTOS queue with RAII memory management.
+/// A type-safe `FreeRTOS` queue with RAII memory management.
 ///
 /// The queue stores items of type `T` and automatically deletes itself when dropped.
 ///
@@ -366,8 +366,9 @@ impl<T> Queue<T> {
     ///
     /// # Errors
     ///
-    /// Returns [`FreeRtosError::OutOfMemory`] if the FreeRTOS heap cannot
+    /// Returns [`FreeRtosError::OutOfMemory`] if the `FreeRTOS` heap cannot
     /// accommodate the queue.
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(length: FreeRtosUBaseType) -> Result<Self, FreeRtosError> {
         let handle = unsafe {
             freertos_rs_queue_create(length, core::mem::size_of::<T>() as FreeRtosUBaseType)
@@ -382,6 +383,143 @@ impl<T> Queue<T> {
         }
     }
 
+    /// Returns the number of items currently in the queue.
+    pub fn messages_waiting(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_messages_waiting(self.handle) }
+    }
+
+    /// Returns the number of items currently in the queue from an ISR.
+    pub fn messages_waiting_from_isr(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_messages_waiting_from_isr(self.handle) }
+    }
+
+    /// Returns `true` if the queue is empty (ISR-safe).
+    pub fn is_empty_from_isr(&self) -> bool {
+        unsafe { freertos_rs_queue_is_queue_empty_from_isr(self.handle) != 0 }
+    }
+
+    /// Returns `true` if the queue is full (ISR-safe).
+    pub fn is_full_from_isr(&self) -> bool {
+        unsafe { freertos_rs_queue_is_queue_full_from_isr(self.handle) != 0 }
+    }
+
+    /// Returns the number of free spaces in the queue.
+    pub fn spaces_available(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_spaces_available(self.handle) }
+    }
+
+    /// Resets the queue to its empty state.
+    pub fn reset(&self) -> Result<(), FreeRtosError> {
+        let result = unsafe { freertos_rs_queue_reset(self.handle) };
+        if result == PD_PASS {
+            Ok(())
+        } else {
+            Err(FreeRtosError::InvalidParameter)
+        }
+    }
+
+    /// Gives to a semaphore-type queue from an ISR.
+    ///
+    /// Only valid for queues used as semaphores (`item_size=0`). This is the
+    /// ISR equivalent of giving a binary/counting semaphore implemented as a queue.
+    /// Returns `true` on success.
+    pub fn give_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_queue_give_from_isr(self.handle, higher_priority_task_woken) == PD_PASS }
+    }
+
+    /// Creates a new queue using static memory.
+    ///
+    /// # Safety
+    /// `queue_storage` must be properly aligned and large enough for `length * size_of::<T>()` bytes.
+    /// `static_queue` must point to a valid `StaticQueue_t`-sized buffer. Both must remain
+    /// valid for the lifetime of the queue.
+    #[allow(clippy::cast_possible_truncation)]
+    pub unsafe fn new_static(
+        length: FreeRtosUBaseType,
+        queue_storage: *mut u8,
+        static_queue: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_queue_create_static(
+                length,
+                core::mem::size_of::<T>() as FreeRtosUBaseType,
+                queue_storage,
+                static_queue,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self {
+                handle,
+                _marker: core::marker::PhantomData,
+            })
+        }
+    }
+
+    /// Gets the static buffers backing this queue.
+    ///
+    /// Returns `true` if the queue was created with static allocation and
+    /// the buffers were successfully retrieved.
+    ///
+    /// # Safety
+    /// `queue_storage` and `static_queue` must be valid pointers to write into.
+    pub unsafe fn get_static_buffers(
+        &self,
+        queue_storage: *mut *mut u8,
+        static_queue: *mut FreeRtosVoidPtr,
+    ) -> bool {
+        unsafe { freertos_rs_queue_get_static_buffers(self.handle, queue_storage, static_queue) == PD_PASS }
+    }
+
+    /// Returns the item size (in bytes) of this queue.
+    pub fn item_size(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_get_queue_item_size(self.handle) }
+    }
+
+    /// Returns the queue length (capacity).
+    pub fn length(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_get_queue_length(self.handle) }
+    }
+
+    /// Returns the queue name, or null if unregistered.
+    pub fn name(&self) -> *const u8 {
+        unsafe { freertos_rs_queue_get_name(self.handle) }
+    }
+
+    /// Adds this queue to the debug registry.
+    ///
+    /// # Safety
+    /// `name` must be a valid null-terminated C string.
+    pub unsafe fn add_to_registry(&self, name: *const u8) {
+        unsafe { freertos_rs_queue_add_to_registry(self.handle, name) };
+    }
+
+    /// Removes this queue from the debug registry.
+    pub fn unregister(&self) {
+        unsafe { freertos_rs_queue_unregister_queue(self.handle) };
+    }
+
+    /// Sets the queue number for debug tracing.
+    pub fn set_queue_number(&self, number: FreeRtosUBaseType) {
+        unsafe { freertos_rs_queue_set_queue_number(self.handle, number) };
+    }
+
+    /// Gets the queue number for debug tracing.
+    pub fn queue_number(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_queue_get_queue_number(self.handle) }
+    }
+
+    /// Returns the queue type identifier.
+    pub fn queue_type(&self) -> u8 {
+        unsafe { freertos_rs_queue_get_queue_type(self.handle) }
+    }
+}
+
+// Data transfer methods require T: Send because FreeRTOS copies items via
+// memcpy across task boundaries. Non-Send types (e.g., Rc, Cell) would have
+// their invariants violated by bitwise duplication between threads.
+impl<T: Send> Queue<T> {
     /// Sends an item to the back of the queue.
     ///
     /// Blocks for up to `ticks_to_wait` ticks if the queue is full.
@@ -390,7 +528,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send(
                 self.handle,
-                item as *const T as FreeRtosConstVoidPtr,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
                 ticks_to_wait,
             )
         };
@@ -406,7 +544,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send_to_front(
                 self.handle,
-                item as *const T as FreeRtosConstVoidPtr,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
                 ticks_to_wait,
             )
         };
@@ -420,7 +558,7 @@ impl<T> Queue<T> {
     /// Receives an item from the queue.
     ///
     /// Returns `Some(item)` on success, `None` if the receive timed out.
-    /// FreeRTOS copies `size_of::<T>()` bytes via memcpy, so the item is
+    /// `FreeRTOS` copies `size_of::<T>()` bytes via memcpy, so the item is
     /// fully initialized on success. Ownership transfers from the sender.
     pub fn receive(&self, ticks_to_wait: FreeRtosTickType) -> Option<T> {
         let mut item = core::mem::MaybeUninit::<T>::uninit();
@@ -455,26 +593,6 @@ impl<T> Queue<T> {
         }
     }
 
-    /// Returns the number of items currently in the queue.
-    pub fn messages_waiting(&self) -> FreeRtosUBaseType {
-        unsafe { freertos_rs_queue_messages_waiting(self.handle) }
-    }
-
-    /// Returns the number of free spaces in the queue.
-    pub fn spaces_available(&self) -> FreeRtosUBaseType {
-        unsafe { freertos_rs_queue_spaces_available(self.handle) }
-    }
-
-    /// Resets the queue to its empty state.
-    pub fn reset(&self) -> Result<(), FreeRtosError> {
-        let result = unsafe { freertos_rs_queue_reset(self.handle) };
-        if result == PD_PASS {
-            Ok(())
-        } else {
-            Err(FreeRtosError::QueueFull)
-        }
-    }
-
     /// Sends an item from an ISR context.
     pub fn send_from_isr(
         &self,
@@ -484,7 +602,47 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_send_from_isr(
                 self.handle,
-                item as *const T as FreeRtosConstVoidPtr,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
+                higher_priority_task_woken,
+            )
+        };
+        if result == PD_PASS {
+            Ok(())
+        } else {
+            Err(FreeRtosError::QueueSendTimeout)
+        }
+    }
+
+    /// Sends an item to the front of the queue from an ISR context.
+    pub fn send_to_front_from_isr(
+        &self,
+        item: &T,
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> Result<(), FreeRtosError> {
+        let result = unsafe {
+            freertos_rs_queue_send_to_front_from_isr(
+                self.handle,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
+                higher_priority_task_woken,
+            )
+        };
+        if result == PD_PASS {
+            Ok(())
+        } else {
+            Err(FreeRtosError::QueueSendTimeout)
+        }
+    }
+
+    /// Sends an item to the back of the queue from an ISR context (explicit).
+    pub fn send_to_back_from_isr(
+        &self,
+        item: &T,
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> Result<(), FreeRtosError> {
+        let result = unsafe {
+            freertos_rs_queue_send_to_back_from_isr(
+                self.handle,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
                 higher_priority_task_woken,
             )
         };
@@ -522,13 +680,13 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_overwrite(
                 self.handle,
-                item as *const T as FreeRtosConstVoidPtr,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
             )
         };
         if result == PD_PASS {
             Ok(())
         } else {
-            Err(FreeRtosError::QueueFull)
+            Err(FreeRtosError::InvalidParameter)
         }
     }
 
@@ -543,7 +701,7 @@ impl<T> Queue<T> {
         let result = unsafe {
             freertos_rs_queue_overwrite_from_isr(
                 self.handle,
-                item as *const T as FreeRtosConstVoidPtr,
+                core::ptr::from_ref::<T>(item) as FreeRtosConstVoidPtr,
                 higher_priority_task_woken,
             )
         };
@@ -585,7 +743,7 @@ unsafe impl<T: Send + Sync> Sync for Queue<T> {}
 // SAFE WRAPPER - QUEUE SET
 //===========================================================================
 
-/// A FreeRTOS queue set for multiplexing multiple queues/semaphores.
+/// A `FreeRTOS` queue set for multiplexing multiple queues/semaphores.
 ///
 /// Allows a task to block on multiple queues or semaphores simultaneously,
 /// waking when any member has data available. Created with
@@ -618,6 +776,27 @@ impl QueueSet {
     /// all queues that will be added to this set.
     pub fn new(event_queue_length: FreeRtosUBaseType) -> Result<Self, FreeRtosError> {
         let handle = unsafe { freertos_rs_queue_create_set(event_queue_length) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Creates a queue set with static memory allocation.
+    ///
+    /// # Safety
+    /// `storage_buffer` must be properly aligned and `queue_set_buffer` must
+    /// point to a valid `StaticQueue_t`. Both must remain valid for the queue
+    /// set's lifetime.
+    pub unsafe fn new_static(
+        event_queue_length: FreeRtosUBaseType,
+        storage_buffer: *mut u8,
+        queue_set_buffer: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_queue_create_set_static(event_queue_length, storage_buffer, queue_set_buffer)
+        };
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
@@ -670,11 +849,122 @@ impl QueueSet {
     }
 }
 
+//===========================================================================
+// LOW-LEVEL SAFE WRAPPERS - QUEUE MUTEX OPERATIONS
+//===========================================================================
+
+/// Creates a mutex-type queue (low-level).
+///
+/// Prefer using [`crate::semphr::Mutex`] instead of this low-level function.
+///
+/// # Safety
+/// The returned handle must be properly managed to avoid leaks.
+pub unsafe fn queue_create_mutex(queue_type: u8) -> FreeRtosQueueHandle {
+    unsafe { freertos_rs_queue_create_mutex(queue_type) }
+}
+
+/// Creates a static mutex-type queue (low-level).
+///
+/// # Safety
+/// `static_queue` must point to valid `StaticQueue_t` memory.
+pub unsafe fn queue_create_mutex_static(queue_type: u8, static_queue: FreeRtosVoidPtr) -> FreeRtosQueueHandle {
+    unsafe { freertos_rs_queue_create_mutex_static(queue_type, static_queue) }
+}
+
+/// Gets the task holding a mutex queue (low-level).
+///
+/// # Safety
+/// `queue` must be a valid queue handle created as a mutex.
+pub unsafe fn queue_get_mutex_holder(queue: FreeRtosQueueHandle) -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_queue_get_mutex_holder(queue) }
+}
+
+/// Gets the task holding a mutex queue from ISR (low-level).
+///
+/// # Safety
+/// `queue` must be a valid queue handle created as a mutex.
+pub unsafe fn queue_get_mutex_holder_from_isr(queue: FreeRtosQueueHandle) -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_queue_get_mutex_holder_from_isr(queue) }
+}
+
+/// Takes a semaphore-type queue (low-level).
+///
+/// # Safety
+/// `queue` must be a valid semaphore-type queue handle.
+pub unsafe fn queue_semaphore_take(queue: FreeRtosQueueHandle, ticks_to_wait: FreeRtosTickType) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_semaphore_take(queue, ticks_to_wait) }
+}
+
+/// Takes a recursive mutex queue (low-level).
+///
+/// # Safety
+/// `mutex` must be a valid recursive mutex queue handle.
+pub unsafe fn queue_take_mutex_recursive(mutex: FreeRtosQueueHandle, ticks_to_wait: FreeRtosTickType) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_take_mutex_recursive(mutex, ticks_to_wait) }
+}
+
+/// Gives a recursive mutex queue (low-level).
+///
+/// # Safety
+/// `mutex` must be a valid recursive mutex queue handle.
+pub unsafe fn queue_give_mutex_recursive(mutex: FreeRtosQueueHandle) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_give_mutex_recursive(mutex) }
+}
+
+/// Generic send to a queue (low-level).
+///
+/// # Safety
+/// `queue` must be valid. `item` must point to valid data of the correct size.
+/// `position` must be a valid `QueueSendPosition` value.
+pub unsafe fn queue_generic_send(
+    queue: FreeRtosQueueHandle,
+    item: FreeRtosConstVoidPtr,
+    ticks_to_wait: FreeRtosTickType,
+    position: FreeRtosBaseType,
+) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_generic_send(queue, item, ticks_to_wait, position) }
+}
+
+/// Generic send from ISR (low-level).
+///
+/// # Safety
+/// Must be called from ISR context only.
+pub unsafe fn queue_generic_send_from_isr(
+    queue: FreeRtosQueueHandle,
+    item: FreeRtosConstVoidPtr,
+    higher_priority_task_woken: *mut FreeRtosBaseType,
+    position: FreeRtosBaseType,
+) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_generic_send_from_isr(queue, item, higher_priority_task_woken, position) }
+}
+
+/// Generic queue reset (low-level).
+///
+/// # Safety
+/// `queue` must be a valid queue handle. `new_count` is the new queue length.
+pub unsafe fn queue_generic_reset(queue: FreeRtosQueueHandle, new_count: FreeRtosBaseType) -> FreeRtosBaseType {
+    unsafe { freertos_rs_queue_generic_reset(queue, new_count) }
+}
+
+/// Waits for a message on a queue with restricted blocking (low-level).
+///
+/// # Safety
+/// `queue` must be a valid queue handle.
+pub unsafe fn queue_wait_for_message_restricted(
+    queue: FreeRtosQueueHandle,
+    ticks_to_wait: FreeRtosTickType,
+    read_whitespace: FreeRtosBaseType,
+) {
+    unsafe { freertos_rs_queue_wait_for_message_restricted(queue, ticks_to_wait, read_whitespace) };
+}
+
 impl Drop for QueueSet {
     fn drop(&mut self) {
-        // Queue sets are deleted implicitly when all member queues are deleted.
-        // There is no vQueueSetDelete in FreeRTOS - the set is freed when
-        // all members are removed. We just drop our handle.
+        if !self.handle.is_null() {
+            // Queue sets are internally queues in FreeRTOS (created by xQueueCreateSet).
+            // Deleting them with vQueueDelete frees the underlying memory.
+            unsafe { freertos_rs_queue_delete(self.handle as FreeRtosQueueHandle) };
+        }
     }
 }
 
@@ -692,12 +982,20 @@ const _: () = {
     const fn assert_sync<T: Sync>() {}
     assert_send::<Queue<u32>>();
     assert_sync::<Queue<u32>>();
+    assert_send::<Queue<u8>>();
+    assert_sync::<Queue<u8>>();
     assert_send::<QueueSet>();
     assert_sync::<QueueSet>();
 };
 
-// Queue<T> has correct PhantomData — zero size overhead
+// Queue<T> has correct PhantomData — zero size overhead regardless of T
 const _: () = assert!(core::mem::size_of::<Queue<u32>>() == core::mem::size_of::<FreeRtosQueueHandle>());
+const _: () = assert!(core::mem::size_of::<Queue<u8>>() == core::mem::size_of::<FreeRtosQueueHandle>());
+const _: () = assert!(core::mem::size_of::<Queue<[u8; 64]>>() == core::mem::size_of::<FreeRtosQueueHandle>());
 
 // QueueSet is pointer-sized
 const _: () = assert!(core::mem::size_of::<QueueSet>() == core::mem::size_of::<FreeRtosQueueSetHandle>());
+
+// Alignment matches handle type
+const _: () = assert!(core::mem::align_of::<Queue<u32>>() == core::mem::align_of::<FreeRtosQueueHandle>());
+const _: () = assert!(core::mem::align_of::<QueueSet>() == core::mem::align_of::<FreeRtosQueueSetHandle>());

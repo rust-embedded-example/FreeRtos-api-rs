@@ -1,6 +1,6 @@
-//! FreeRTOS semaphore and mutex module.
+//! `FreeRTOS` semaphore and mutex module.
 //!
-//! Provides FFI bindings and safe wrappers for FreeRTOS synchronization primitives:
+//! Provides FFI bindings and safe wrappers for `FreeRTOS` synchronization primitives:
 //!
 //! - **Binary Semaphore** ([`BinarySemaphore`]) — Simple signaling between tasks/ISRs
 //! - **Counting Semaphore** ([`CountingSemaphore`]) — Count of available resources
@@ -19,13 +19,12 @@
 //! }
 //! ```
 
-use core::cell::Cell;
-
 use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosSemaphoreHandle, FreeRtosMutexHandle,
     FreeRtosUBaseType, FreeRtosVoidPtr, FreeRtosError, PD_PASS,
     FreeRtosTaskHandle,
 };
+use core::sync::atomic::{AtomicBool, Ordering};
 
 //===========================================================================
 // SEMAPHORE CONSTANTS
@@ -246,6 +245,17 @@ impl BinarySemaphore {
             Ok(Self { handle })
         }
     }
+
+    /// Gets the static buffer associated with this semaphore.
+    ///
+    /// Returns `true` on success. The `buffer` output parameter receives
+    /// a pointer to the internal `StaticSemaphore_t`.
+    ///
+    /// # Safety
+    /// `buffer` must be a valid pointer to a `*mut c_void` for output.
+    pub unsafe fn get_static_buffer(&self, buffer: *mut FreeRtosVoidPtr) -> bool {
+        unsafe { freertos_rs_semaphore_get_static_buffer(self.handle, buffer) != 0 }
+    }
 }
 
 impl Drop for BinarySemaphore {
@@ -304,6 +314,27 @@ impl CountingSemaphore {
         unsafe { freertos_rs_semaphore_get_count(self.handle) }
     }
 
+    /// Returns the current count value from an ISR context.
+    pub fn count_from_isr(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_semaphore_get_count_from_isr(self.handle) }
+    }
+
+    /// Takes (decrements) the semaphore from an ISR.
+    /// Returns `true` on success.
+    pub fn take_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe {
+            freertos_rs_semaphore_take_from_isr(self.handle, higher_priority_task_woken) == PD_PASS
+        }
+    }
+
+    /// Gives (increments) the semaphore from an ISR.
+    /// Returns `true` on success.
+    pub fn give_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe {
+            freertos_rs_semaphore_give_from_isr(self.handle, higher_priority_task_woken) == PD_PASS
+        }
+    }
+
     /// Creates a counting semaphore using static memory.
     ///
     /// # Safety
@@ -321,6 +352,16 @@ impl CountingSemaphore {
         } else {
             Ok(Self { handle })
         }
+    }
+
+    /// Gets the static buffer backing this semaphore.
+    ///
+    /// Returns `true` if the buffer was successfully retrieved.
+    ///
+    /// # Safety
+    /// `buffer` must be a valid pointer to write a `StaticSemaphore_t*` into.
+    pub unsafe fn get_static_buffer(&self, buffer: *mut FreeRtosVoidPtr) -> bool {
+        unsafe { freertos_rs_semaphore_get_static_buffer(self.handle, buffer) != 0 }
     }
 }
 
@@ -346,7 +387,7 @@ unsafe impl Sync for CountingSemaphore {}
 /// priority is temporarily elevated (priority inheritance).
 pub struct Mutex {
     handle: FreeRtosMutexHandle,
-    owned: Cell<bool>,
+    owned: AtomicBool,
 }
 
 impl Mutex {
@@ -358,7 +399,7 @@ impl Mutex {
         } else {
             Ok(Self {
                 handle,
-                owned: Cell::new(false),
+                owned: AtomicBool::new(false),
             })
         }
     }
@@ -374,7 +415,7 @@ impl Mutex {
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
-            Ok(Self { handle, owned: Cell::new(false) })
+            Ok(Self { handle, owned: AtomicBool::new(false) })
         }
     }
 
@@ -385,7 +426,7 @@ impl Mutex {
         let result =
             unsafe { freertos_rs_semaphore_take(self.handle as FreeRtosSemaphoreHandle, ticks_to_wait) };
         if result == PD_PASS {
-            self.owned.set(true);
+            self.owned.store(true, Ordering::Release);
             true
         } else {
             false
@@ -398,7 +439,7 @@ impl Mutex {
     pub fn unlock(&self) -> bool {
         let result = unsafe { freertos_rs_semaphore_give(self.handle as FreeRtosSemaphoreHandle) };
         if result == PD_PASS {
-            self.owned.set(false);
+            self.owned.store(false, Ordering::Release);
             true
         } else {
             false
@@ -407,7 +448,7 @@ impl Mutex {
 
     /// Returns whether this mutex is currently held (locked).
     pub fn is_owned(&self) -> bool {
-        self.owned.get()
+        self.owned.load(Ordering::Acquire)
     }
 
     /// Returns the handle of the task currently holding this mutex, or `NULL` if unheld.
@@ -419,11 +460,25 @@ impl Mutex {
     pub fn get_holder_from_isr(&self) -> FreeRtosTaskHandle {
         unsafe { freertos_rs_semaphore_get_mutex_holder_from_isr(self.handle as FreeRtosSemaphoreHandle) }
     }
+
+    /// Gets the static buffer backing this mutex.
+    ///
+    /// Returns `true` if the buffer was successfully retrieved.
+    ///
+    /// # Safety
+    /// `buffer` must be a valid pointer to write a `StaticSemaphore_t*` into.
+    pub unsafe fn get_static_buffer(&self, buffer: *mut FreeRtosVoidPtr) -> bool {
+        unsafe { freertos_rs_semaphore_get_static_buffer(self.handle as FreeRtosSemaphoreHandle, buffer) != 0 }
+    }
 }
 
 impl Drop for Mutex {
     fn drop(&mut self) {
-        if self.owned.get() {
+        // Attempt to release if we believe we hold the lock. This is a best-effort
+        // heuristic — only the owning task can successfully release a mutex.
+        // If a different task drops this, xSemaphoreGive will fail and we
+        // proceed to delete the semaphore anyway.
+        if self.owned.load(Ordering::Acquire) {
             self.unlock();
         }
         if !self.handle.is_null() {
@@ -443,8 +498,18 @@ unsafe impl Sync for Mutex {}
 ///
 /// Each `lock` must be paired with a corresponding `unlock`. The mutex is
 /// only fully released when the lock count reaches zero.
+///
+/// # Drop Behavior
+///
+/// When dropped, this type attempts to release the recursive mutex before
+/// deleting the underlying semaphore. However, only the task that holds the
+/// mutex can successfully release it. If a different task drops a held
+/// `RecursiveMutex`, the release attempt will fail silently (FreeRTOS returns
+/// an error for `xSemaphoreGiveRecursive` called by a non-owner) but the
+/// semaphore will still be deleted.
 pub struct RecursiveMutex {
     handle: FreeRtosMutexHandle,
+    owned: AtomicBool,
 }
 
 impl RecursiveMutex {
@@ -454,25 +519,65 @@ impl RecursiveMutex {
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
-            Ok(Self { handle })
+            Ok(Self { handle, owned: AtomicBool::new(false) })
+        }
+    }
+
+    /// Creates a recursive mutex using static memory.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure `buffer` is properly aligned for
+    /// `StaticSemaphore_t` and remains valid for the mutex's lifetime.
+    pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
+        let handle = unsafe { freertos_rs_semaphore_create_recursive_mutex_static(buffer) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle, owned: AtomicBool::new(false) })
         }
     }
 
     /// Acquires the recursive mutex. Can be called multiple times by the same task.
     pub fn lock(&self, ticks_to_wait: FreeRtosTickType) -> bool {
-        unsafe {
+        let result = unsafe {
             freertos_rs_semaphore_take_recursive(self.handle, ticks_to_wait) == PD_PASS
+        };
+        if result {
+            self.owned.store(true, Ordering::Release);
         }
+        result
     }
 
     /// Releases the recursive mutex. Must be called once per `lock`.
     pub fn unlock(&self) -> bool {
-        unsafe { freertos_rs_semaphore_give_recursive(self.handle) == PD_PASS }
+        let result = unsafe { freertos_rs_semaphore_give_recursive(self.handle) == PD_PASS };
+        if result {
+            self.owned.store(false, Ordering::Release);
+        }
+        result
+    }
+
+    /// Gets the static buffer backing this recursive mutex.
+    ///
+    /// Returns `true` if the buffer was successfully retrieved.
+    ///
+    /// # Safety
+    /// `buffer` must be a valid pointer to write a `StaticSemaphore_t*` into.
+    pub unsafe fn get_static_buffer(&self, buffer: *mut FreeRtosVoidPtr) -> bool {
+        unsafe { freertos_rs_semaphore_get_static_buffer(self.handle as FreeRtosSemaphoreHandle, buffer) != 0 }
     }
 }
 
 impl Drop for RecursiveMutex {
     fn drop(&mut self) {
+        // Attempt to release if we believe we hold the lock. This is a best-effort
+        // heuristic — only the owning task can successfully release a recursive
+        // mutex. If a different task drops this, xSemaphoreGiveRecursive will fail
+        // and we proceed to delete the semaphore anyway.
+        if self.owned.load(Ordering::Acquire) {
+            self.unlock();
+        }
         if !self.handle.is_null() {
             unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
         }
@@ -499,10 +604,19 @@ const _: () = {
     assert_sync::<RecursiveMutex>();
 };
 
-// Wrapper types are pointer-sized (handle only, no extra fields except Mutex with bool)
+// Wrapper types are pointer-sized (handle only, no extra fields except Mutex/RecursiveMutex with AtomicBool)
 const _: () = assert!(core::mem::size_of::<BinarySemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
 const _: () = assert!(core::mem::size_of::<CountingSemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
-const _: () = assert!(core::mem::size_of::<RecursiveMutex>() == core::mem::size_of::<FreeRtosMutexHandle>());
+// Mutex and RecursiveMutex have an additional AtomicBool for ownership tracking
+const _: () = assert!(core::mem::size_of::<Mutex>() >= core::mem::size_of::<FreeRtosMutexHandle>());
+const _: () = assert!(core::mem::size_of::<RecursiveMutex>() >= core::mem::size_of::<FreeRtosMutexHandle>());
+
+// All wrappers are repr(C) compatible (handle is first field)
+// This ensures safe transmute to the handle pointer when needed by FFI
+const _: () = assert!(core::mem::align_of::<BinarySemaphore>() == core::mem::align_of::<FreeRtosSemaphoreHandle>());
+const _: () = assert!(core::mem::align_of::<CountingSemaphore>() == core::mem::align_of::<FreeRtosSemaphoreHandle>());
+const _: () = assert!(core::mem::align_of::<Mutex>() >= core::mem::align_of::<FreeRtosMutexHandle>());
+const _: () = assert!(core::mem::align_of::<RecursiveMutex>() >= core::mem::align_of::<FreeRtosMutexHandle>());
 
 // Semaphore constants match FreeRTOS
 const _: () = assert!(SEM_BINARY_SEMAPHORE_QUEUE_LENGTH == 1);

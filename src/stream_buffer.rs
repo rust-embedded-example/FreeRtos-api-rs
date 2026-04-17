@@ -1,6 +1,6 @@
-//! FreeRTOS stream buffer module.
+//! `FreeRTOS` stream buffer module.
 //!
-//! Provides FFI bindings and a safe `StreamBuffer` wrapper for FreeRTOS stream
+//! Provides FFI bindings and a safe `StreamBuffer` wrapper for `FreeRTOS` stream
 //! buffers. Stream buffers are variable-length byte streams optimized for
 //! sending continuous streams of data between tasks and ISRs.
 //!
@@ -251,7 +251,7 @@ unsafe extern "C" {
 // SAFE WRAPPER - STREAM BUFFER
 //===========================================================================
 
-/// A FreeRTOS stream buffer for byte-oriented data transfer.
+/// A `FreeRTOS` stream buffer for byte-oriented data transfer.
 ///
 /// Stream buffers are optimized for continuous data streams where the sender
 /// and receiver may operate at different rates.
@@ -372,6 +372,137 @@ impl StreamBuffer {
     pub fn get_notification_index(&self) -> FreeRtosUBaseType {
         unsafe { freertos_rs_stream_buffer_get_notification_index(self.handle) }
     }
+
+    /// Creates a stream buffer with static memory allocation.
+    ///
+    /// # Safety
+    /// `storage_buffer` must be properly aligned and `stream_buffer_struct`
+    /// must point to valid `StaticStreamBuffer_t` memory. Both must remain
+    /// valid for the stream buffer's lifetime.
+    pub unsafe fn new_static(
+        buffer_size: usize,
+        trigger_level: usize,
+        storage_buffer: *mut u8,
+        stream_buffer_struct: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_buffer_create_static(buffer_size, trigger_level, storage_buffer, stream_buffer_struct)
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Resets the stream buffer from an ISR context.
+    pub fn reset_from_isr(&self) -> bool {
+        unsafe { freertos_rs_stream_buffer_reset_from_isr(self.handle) == PD_PASS }
+    }
+
+    /// Gets the stream buffer number (trace facility).
+    pub fn stream_buffer_number(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_stream_buffer_get_stream_buffer_number(self.handle) }
+    }
+
+    /// Sets the stream buffer number (trace facility).
+    pub fn set_stream_buffer_number(&self, number: FreeRtosUBaseType) {
+        unsafe { freertos_rs_stream_buffer_set_stream_buffer_number(self.handle, number) }
+    }
+
+    /// Gets the stream buffer type (0=stream, 1=message, 2=batching).
+    pub fn stream_buffer_type(&self) -> u8 {
+        unsafe { freertos_rs_stream_buffer_get_stream_buffer_type(self.handle) }
+    }
+
+    /// ISR completion callback after sending to a stream buffer from non-FreeRTOS code.
+    ///
+    /// Call this from an ISR after writing data to the stream buffer's storage
+    /// area directly (bypassing the `FreeRTOS` API). Returns `true` if a higher
+    /// priority task was woken.
+    pub fn send_completed_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_stream_buffer_send_completed_from_isr(self.handle, higher_priority_task_woken) != 0 }
+    }
+
+    /// ISR completion callback after receiving from a stream buffer from non-FreeRTOS code.
+    ///
+    /// Call this from an ISR after reading data from the stream buffer's storage
+    /// area directly (bypassing the `FreeRTOS` API). Returns `true` if a higher
+    /// priority task was woken.
+    pub fn receive_completed_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_stream_buffer_receive_completed_from_isr(self.handle, higher_priority_task_woken) != 0 }
+    }
+
+    /// Gets the static buffers associated with this stream buffer.
+    ///
+    /// Returns `true` on success.
+    ///
+    /// # Safety
+    /// `storage_area` must be a valid `*mut *mut u8` and `static_buffer`
+    /// must be a valid `*mut FreeRtosVoidPtr` for output.
+    pub unsafe fn get_static_buffers(
+        &self,
+        storage_area: *mut *mut u8,
+        static_buffer: *mut FreeRtosVoidPtr,
+    ) -> bool {
+        unsafe { freertos_rs_stream_buffer_get_static_buffers(self.handle, storage_area, static_buffer) != 0 }
+    }
+
+    /// Creates a stream buffer with send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `send_callback` and `receive_callback` must be valid function pointers or null.
+    pub unsafe fn new_with_callback(
+        buffer_size: usize,
+        trigger_level: usize,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_buffer_create_with_callback(
+                buffer_size,
+                trigger_level,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Creates a stream buffer with static storage and send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `stream_buffer_storage` must be large enough for `buffer_size + 1` bytes.
+    /// `static_buffer` must point to a valid `StaticStreamBuffer_t`-sized buffer.
+    /// Both must remain valid for the lifetime of the stream buffer.
+    pub unsafe fn new_static_with_callback(
+        buffer_size: usize,
+        trigger_level: usize,
+        stream_buffer_storage: *mut u8,
+        static_buffer: FreeRtosVoidPtr,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_buffer_create_static_with_callback(
+                buffer_size,
+                trigger_level,
+                stream_buffer_storage,
+                static_buffer,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
 }
 
 impl Drop for StreamBuffer {
@@ -389,7 +520,7 @@ unsafe impl Sync for StreamBuffer {}
 // SAFE WRAPPER - BATCHING STREAM BUFFER
 //===========================================================================
 
-/// A FreeRTOS batching stream buffer for accumulating data before triggering a read.
+/// A `FreeRTOS` batching stream buffer for accumulating data before triggering a read.
 ///
 /// Unlike regular stream buffers, batching buffers accumulate data until the
 /// trigger level is reached before unblocking a waiting task. This is useful
@@ -503,6 +634,87 @@ impl BatchingBuffer {
             )
         }
     }
+
+    /// Creates a batching stream buffer with send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `send_callback` and `receive_callback` must be valid function pointers or null.
+    pub unsafe fn new_with_callback(
+        buffer_size: usize,
+        trigger_level: usize,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_batching_buffer_create_with_callback(
+                buffer_size,
+                trigger_level,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Creates a batching stream buffer with static storage.
+    ///
+    /// # Safety
+    /// `stream_buffer_storage` must be large enough for `buffer_size + 1` bytes.
+    /// `static_buffer` must point to a valid `StaticStreamBuffer_t`-sized buffer.
+    pub unsafe fn new_static(
+        buffer_size: usize,
+        trigger_level: usize,
+        stream_buffer_storage: *mut u8,
+        static_buffer: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_batching_buffer_create_static(
+                buffer_size,
+                trigger_level,
+                stream_buffer_storage,
+                static_buffer,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Creates a batching stream buffer with static storage and send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `stream_buffer_storage` must be large enough for `buffer_size + 1` bytes.
+    /// `static_buffer` must point to a valid `StaticStreamBuffer_t`-sized buffer.
+    pub unsafe fn new_static_with_callback(
+        buffer_size: usize,
+        trigger_level: usize,
+        stream_buffer_storage: *mut u8,
+        static_buffer: FreeRtosVoidPtr,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_stream_batching_buffer_create_static_with_callback(
+                buffer_size,
+                trigger_level,
+                stream_buffer_storage,
+                static_buffer,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
 }
 
 impl Drop for BatchingBuffer {
@@ -536,3 +748,7 @@ const _: () = assert!(SB_TYPE_STREAM_BATCHING_BUFFER == 2);
 // StreamBuffer and BatchingBuffer are pointer-sized
 const _: () = assert!(core::mem::size_of::<StreamBuffer>() == core::mem::size_of::<FreeRtosStreamBufferHandle>());
 const _: () = assert!(core::mem::size_of::<BatchingBuffer>() == core::mem::size_of::<FreeRtosStreamBufferHandle>());
+
+// Alignment matches handle type
+const _: () = assert!(core::mem::align_of::<StreamBuffer>() == core::mem::align_of::<FreeRtosStreamBufferHandle>());
+const _: () = assert!(core::mem::align_of::<BatchingBuffer>() == core::mem::align_of::<FreeRtosStreamBufferHandle>());

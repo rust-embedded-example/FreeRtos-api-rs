@@ -1,6 +1,6 @@
-//! FreeRTOS event group module.
+//! `FreeRTOS` event group module.
 //!
-//! Provides FFI bindings and a safe `EventGroup` wrapper for FreeRTOS event groups.
+//! Provides FFI bindings and a safe `EventGroup` wrapper for `FreeRTOS` event groups.
 //! Event groups allow tasks to wait for a combination of bits (events) to be set,
 //! enabling complex synchronization patterns like barrier synchronization.
 //!
@@ -234,6 +234,40 @@ impl EventGroup {
     pub fn clear_bits_from_isr(&self, bits_to_clear: FreeRtosEventBits) -> FreeRtosEventBits {
         unsafe { freertos_rs_event_group_clear_bits_from_isr(self.handle, bits_to_clear) }
     }
+
+    /// Creates an event group with static memory allocation.
+    ///
+    /// # Safety
+    /// `buffer` must be properly aligned for `StaticEventGroup_t` and remain
+    /// valid for the event group's lifetime.
+    pub unsafe fn new_static(buffer: FreeRtosVoidPtr) -> Result<Self, FreeRtosError> {
+        let handle = unsafe { freertos_rs_event_group_create_static(buffer) };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Gets the static buffer associated with this event group.
+    ///
+    /// Returns `true` on success.
+    ///
+    /// # Safety
+    /// `buffer` must be a valid pointer to a `*mut c_void` for output.
+    pub unsafe fn get_static_buffer(&self, buffer: *mut FreeRtosVoidPtr) -> bool {
+        unsafe { freertos_rs_event_group_get_static_buffer(self.handle, buffer) != 0 }
+    }
+
+    /// Gets the event group number (trace facility).
+    pub fn event_group_number(&self) -> FreeRtosUBaseType {
+        unsafe { freertos_rs_event_group_get_number(self.handle) }
+    }
+
+    /// Sets the event group number (trace facility).
+    pub fn set_event_group_number(&self, number: FreeRtosUBaseType) {
+        unsafe { freertos_rs_event_group_set_number(self.handle, number) }
+    }
 }
 
 impl Drop for EventGroup {
@@ -248,6 +282,38 @@ unsafe impl Send for EventGroup {}
 unsafe impl Sync for EventGroup {}
 
 //===========================================================================
+// EVENT GROUP CALLBACK FUNCTIONS (for timer pend function call)
+//===========================================================================
+
+/// Timer-compatible callback that sets bits in an event group.
+///
+/// Wraps `vEventGroupSetBitsCallback()`. This function has the correct
+/// signature to be passed as a `FreeRtosPendedFunction` callback to
+/// [`crate::timers::Timer::pend_function_call`].
+///
+/// # Safety
+/// `event_group` must be a valid `EventGroupHandle_t` cast to `void*`.
+/// `bits_to_set` is passed as `parameter2` (u32 cast to the callback's
+/// second argument).
+pub unsafe fn set_bits_callback(event_group: FreeRtosVoidPtr, bits_to_set: u32) {
+    unsafe { freertos_rs_event_group_set_bits_callback(event_group, bits_to_set) };
+}
+
+/// Timer-compatible callback that clears bits in an event group.
+///
+/// Wraps `vEventGroupClearBitsCallback()`. This function has the correct
+/// signature to be passed as a `FreeRtosPendedFunction` callback to
+/// [`crate::timers::Timer::pend_function_call`].
+///
+/// # Safety
+/// `event_group` must be a valid `EventGroupHandle_t` cast to `void*`.
+/// `bits_to_clear` is passed as `parameter2` (u32 cast to the callback's
+/// second argument).
+pub unsafe fn clear_bits_callback(event_group: FreeRtosVoidPtr, bits_to_clear: u32) {
+    unsafe { freertos_rs_event_group_clear_bits_callback(event_group, bits_to_clear) };
+}
+
+//===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
@@ -260,3 +326,4 @@ const _: () = {
 
 // EventGroup is pointer-sized
 const _: () = assert!(core::mem::size_of::<EventGroup>() == core::mem::size_of::<FreeRtosEventGroupHandle>());
+const _: () = assert!(core::mem::align_of::<EventGroup>() == core::mem::align_of::<FreeRtosEventGroupHandle>());

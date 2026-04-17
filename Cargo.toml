@@ -17,3 +17,9 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+[features]
+default = ["panic-handler"]
+## Provides a `#[panic_handler]` that loops forever on panic.
+## Disable this feature if your application provides its own panic handler.
+panic-handler = []

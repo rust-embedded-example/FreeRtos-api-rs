@@ -1,6 +1,6 @@
-//! FreeRTOS message buffer module.
+//! `FreeRTOS` message buffer module.
 //!
-//! Provides FFI bindings and a safe `MessageBuffer` wrapper for FreeRTOS message
+//! Provides FFI bindings and a safe `MessageBuffer` wrapper for `FreeRTOS` message
 //! buffers. Message buffers are built on top of stream buffers and add message
 //! framing — each message is sent and received as a discrete unit with a length
 //! prefix, unlike stream buffers which operate on raw byte streams.
@@ -164,7 +164,7 @@ unsafe extern "C" {
 // SAFE WRAPPER - MESSAGE BUFFER
 //===========================================================================
 
-/// A FreeRTOS message buffer for framed message transfer.
+/// A `FreeRTOS` message buffer for framed message transfer.
 ///
 /// Unlike stream buffers, message buffers preserve message boundaries.
 /// Each send/write is a discrete message; each read returns exactly one message.
@@ -270,6 +270,109 @@ impl MessageBuffer {
             )
         }
     }
+
+    /// Creates a message buffer with static memory allocation.
+    ///
+    /// # Safety
+    /// `storage_buffer` must be properly aligned and `message_buffer_struct`
+    /// must point to valid `StaticStreamBuffer_t` memory. Both must remain
+    /// valid for the message buffer's lifetime.
+    pub unsafe fn new_static(
+        buffer_size: usize,
+        storage_buffer: *mut u8,
+        message_buffer_struct: FreeRtosVoidPtr,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_message_buffer_create_static(buffer_size, storage_buffer, message_buffer_struct)
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Gets the static buffers associated with this message buffer.
+    ///
+    /// Returns `true` on success.
+    ///
+    /// # Safety
+    /// `storage_area` must be a valid `*mut *mut u8` and `static_buffer`
+    /// must be a valid `*mut FreeRtosVoidPtr` for output.
+    pub unsafe fn get_static_buffers(
+        &self,
+        storage_area: *mut *mut u8,
+        static_buffer: *mut FreeRtosVoidPtr,
+    ) -> bool {
+        unsafe { freertos_rs_message_buffer_get_static_buffers(self.handle, storage_area, static_buffer) != 0 }
+    }
+
+    /// ISR completion callback after sending to a message buffer from non-FreeRTOS code.
+    ///
+    /// Call this from an ISR after writing data to the message buffer's storage
+    /// area directly. Returns `true` if a higher priority task was woken.
+    pub fn send_completed_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_message_buffer_send_completed_from_isr(self.handle, higher_priority_task_woken) != 0 }
+    }
+
+    /// ISR completion callback after receiving from a message buffer from non-FreeRTOS code.
+    ///
+    /// Call this from an ISR after reading data from the message buffer's storage
+    /// area directly. Returns `true` if a higher priority task was woken.
+    pub fn receive_completed_from_isr(&self, higher_priority_task_woken: &mut FreeRtosBaseType) -> bool {
+        unsafe { freertos_rs_message_buffer_receive_completed_from_isr(self.handle, higher_priority_task_woken) != 0 }
+    }
+
+    /// Creates a message buffer with send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `send_callback` and `receive_callback` must be valid function pointers or null.
+    pub unsafe fn new_with_callback(
+        buffer_size: usize,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_message_buffer_create_with_callback(
+                buffer_size,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
+
+    /// Creates a message buffer with static storage and send/receive completed callbacks.
+    ///
+    /// # Safety
+    /// `storage_buffer` must be properly aligned and large enough.
+    /// `message_buffer_struct` must point to valid `StaticStreamBuffer_t` memory.
+    pub unsafe fn new_static_with_callback(
+        buffer_size: usize,
+        storage_buffer: *mut u8,
+        message_buffer_struct: FreeRtosVoidPtr,
+        send_callback: FreeRtosStreamBufferCallbackFunction,
+        receive_callback: FreeRtosStreamBufferCallbackFunction,
+    ) -> Result<Self, FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_message_buffer_create_static_with_callback(
+                buffer_size,
+                storage_buffer,
+                message_buffer_struct,
+                send_callback,
+                receive_callback,
+            )
+        };
+        if handle.is_null() {
+            Err(FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle })
+        }
+    }
 }
 
 impl Drop for MessageBuffer {
@@ -296,3 +399,4 @@ const _: () = {
 
 // MessageBuffer is pointer-sized
 const _: () = assert!(core::mem::size_of::<MessageBuffer>() == core::mem::size_of::<FreeRtosMessageBufferHandle>());
+const _: () = assert!(core::mem::align_of::<MessageBuffer>() == core::mem::align_of::<FreeRtosMessageBufferHandle>());

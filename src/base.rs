@@ -1,12 +1,12 @@
-//! FreeRTOS base type definitions for Rust FFI bindings.
+//! `FreeRTOS` base type definitions for Rust FFI bindings.
 //!
 //! This module provides the fundamental types, enumerations, structures, and
-//! constants used throughout the FreeRTOS Rust API wrapper. All handle types
+//! constants used throughout the `FreeRTOS` Rust API wrapper. All handle types
 //! are opaque pointers (`*const c_void`) that cross the FFI boundary safely.
 //!
 //! # Type Mapping
 //!
-//! | FreeRTOS Type    | Rust Type         | Notes                        |
+//! | `FreeRTOS` Type    | Rust Type         | Notes                        |
 //! |------------------|-------------------|------------------------------|
 //! | `BaseType_t`     | `i32`             | Signed integer               |
 //! | `UBaseType_t`    | `u32`             | Unsigned integer             |
@@ -16,7 +16,7 @@
 //!
 //! # Constants
 //!
-//! FreeRTOS uses several sentinel constants. These are provided as Rust
+//! `FreeRTOS` uses several sentinel constants. These are provided as Rust
 //! constants for direct use without FFI overhead:
 //!
 //! - [`PD_TRUE`] / [`PD_FALSE`] - Boolean result constants
@@ -29,13 +29,13 @@ use core::ffi::c_void;
 // BASIC TYPE DEFINITIONS
 //===========================================================================
 
-/// FreeRTOS `BaseType_t` — typically a signed 32-bit integer on 32-bit targets.
+/// `FreeRTOS` `BaseType_t` — typically a signed 32-bit integer on 32-bit targets.
 pub type FreeRtosBaseType = i32;
 
-/// FreeRTOS `UBaseType_t` — typically an unsigned 32-bit integer on 32-bit targets.
+/// `FreeRTOS` `UBaseType_t` — typically an unsigned 32-bit integer on 32-bit targets.
 pub type FreeRtosUBaseType = u32;
 
-/// FreeRTOS `TickType_t` — type used for tick counts, delays, and timeouts.
+/// `FreeRTOS` `TickType_t` — type used for tick counts, delays, and timeouts.
 pub type FreeRtosTickType = u32;
 
 /// Mutable void pointer — used for passing generic data pointers.
@@ -44,13 +44,13 @@ pub type FreeRtosVoidPtr = *mut c_void;
 /// Const void pointer — used for passing read-only generic data pointers.
 pub type FreeRtosConstVoidPtr = *const c_void;
 
-/// C string pointer — used for FreeRTOS name parameters.
+/// C string pointer — used for `FreeRTOS` name parameters.
 pub type FreeRtosCharPtr = *const u8;
 
 /// Single byte type.
 pub type FreeRtosChar = u8;
 
-/// FreeRTOS `EventBits_t` — used for event group bit masks.
+/// `FreeRTOS` `EventBits_t` — used for event group bit masks.
 pub type FreeRtosEventBitsType = u32;
 
 /// Mutable pointer to `BaseType_t`.
@@ -60,51 +60,51 @@ pub type FreeRtosBaseTypeMutPtr = *mut FreeRtosBaseType;
 // HANDLE TYPES (all opaque pointers)
 //===========================================================================
 
-/// Opaque handle to a FreeRTOS task.
+/// Opaque handle to a `FreeRTOS` task.
 ///
 /// Use with [`crate::task`] module functions. Can be `NULL` to refer to the
 /// currently executing task.
 pub type FreeRtosTaskHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS queue.
+/// Opaque handle to a `FreeRTOS` queue.
 ///
 /// Use with [`crate::queue`] module functions.
 pub type FreeRtosQueueHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS queue set.
+/// Opaque handle to a `FreeRTOS` queue set.
 ///
 /// Use with [`crate::queue`] queue set functions.
 pub type FreeRtosQueueSetHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS queue set member (queue or semaphore).
+/// Opaque handle to a `FreeRTOS` queue set member (queue or semaphore).
 pub type FreeRtosQueueSetMemberHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS semaphore.
+/// Opaque handle to a `FreeRTOS` semaphore.
 ///
 /// Use with [`crate::semphr`] module functions.
 pub type FreeRtosSemaphoreHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS mutex.
+/// Opaque handle to a `FreeRTOS` mutex.
 ///
 /// Internally the same as a semaphore handle, but distinguished for type safety.
 pub type FreeRtosMutexHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS event group.
+/// Opaque handle to a `FreeRTOS` event group.
 ///
 /// Use with [`crate::event_groups`] module functions.
 pub type FreeRtosEventGroupHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS software timer.
+/// Opaque handle to a `FreeRTOS` software timer.
 ///
 /// Use with [`crate::timers`] module functions.
 pub type FreeRtosTimerHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS stream buffer.
+/// Opaque handle to a `FreeRTOS` stream buffer.
 ///
 /// Use with [`crate::stream_buffer`] module functions.
 pub type FreeRtosStreamBufferHandle = *const c_void;
 
-/// Opaque handle to a FreeRTOS message buffer.
+/// Opaque handle to a `FreeRTOS` message buffer.
 ///
 /// Use with [`crate::message_buffer`] module functions.
 pub type FreeRtosMessageBufferHandle = *const c_void;
@@ -113,23 +113,23 @@ pub type FreeRtosMessageBufferHandle = *const c_void;
 // FUNCTION POINTER TYPES
 //===========================================================================
 
-/// FreeRTOS task entry point function signature.
+/// `FreeRTOS` task entry point function signature.
 ///
 /// Tasks are created with a function pointer matching this type. The `*mut c_void`
 /// parameter receives the argument passed as `pvParameters` during task creation.
 ///
 /// # Safety
 ///
-/// The function must not return. If it does, the FreeRTOS scheduler will
+/// The function must not return. If it does, the `FreeRTOS` scheduler will
 /// delete the task automatically.
 pub type FreeRtosTaskFunction = unsafe extern "C" fn(*mut c_void);
 
-/// FreeRTOS software timer callback function signature.
+/// `FreeRTOS` software timer callback function signature.
 ///
 /// Called by the timer daemon task when a timer expires.
 pub type FreeRtosTimerCallback = unsafe extern "C" fn(FreeRtosTimerHandle);
 
-/// FreeRTOS pended function callback signature.
+/// `FreeRTOS` pended function callback signature.
 ///
 /// Used with `xTimerPendFunctionCall` / `xTimerPendFunctionCallFromISR`.
 pub type FreeRtosPendedFunction = unsafe extern "C" fn(
@@ -137,7 +137,7 @@ pub type FreeRtosPendedFunction = unsafe extern "C" fn(
     parameter2: u32,
 );
 
-/// FreeRTOS stream buffer send/receive completion callback signature.
+/// `FreeRTOS` stream buffer send/receive completion callback signature.
 pub type FreeRtosStreamBufferCallbackFunction = unsafe extern "C" fn(
     stream_buffer: FreeRtosStreamBufferHandle,
     pxHigherPriorityTaskWoken: *mut FreeRtosBaseType,
@@ -147,63 +147,63 @@ pub type FreeRtosStreamBufferCallbackFunction = unsafe extern "C" fn(
 // STACK AND STATIC ALLOCATION TYPES
 //===========================================================================
 
-/// FreeRTOS stack type — pointer to the stack memory area.
+/// `FreeRTOS` stack type — pointer to the stack memory area.
 pub type FreeRtosStackType = *mut c_void;
 
-/// FreeRTOS `StaticTask_t` — pointer to statically allocated task buffer.
+/// `FreeRTOS` `StaticTask_t` — pointer to statically allocated task buffer.
 pub type FreeRtosStaticTask = *mut c_void;
 
 //===========================================================================
 // ADDITIONAL TYPES
 //===========================================================================
 
-/// FreeRTOS unsigned long type.
+/// `FreeRTOS` unsigned long type.
 pub type FreeRtosUnsignedLong = u32;
 
-/// FreeRTOS unsigned short type.
+/// `FreeRTOS` unsigned short type.
 pub type FreeRtosUnsignedShort = u16;
 
-/// FreeRTOS event bits type alias (convenience).
+/// `FreeRTOS` event bits type alias (convenience).
 pub type FreeRtosEventBits = u32;
 
-/// FreeRTOS notification value type.
+/// `FreeRTOS` notification value type.
 pub type FreeRtosNotificationValue = u32;
 
-/// FreeRTOS `configSTACK_DEPTH_TYPE` — typically `u16` on most platforms.
+/// `FreeRTOS` `configSTACK_DEPTH_TYPE` — typically `u16` on most platforms.
 pub type FreeRtosConfigStackDepthType = u16;
 
-/// FreeRTOS `configRUN_TIME_COUNTER_TYPE` — typically `u32`.
+/// `FreeRTOS` `configRUN_TIME_COUNTER_TYPE` — typically `u32`.
 pub type FreeRtosRunTimeCounterType = u32;
 
 //===========================================================================
 // CONSTANTS
 //===========================================================================
 
-/// FreeRTOS `pdTRUE` — boolean true (value: 1).
+/// `FreeRTOS` `pdTRUE` — boolean true (value: 1).
 pub const PD_TRUE: FreeRtosBaseType = 1;
 
-/// FreeRTOS `pdFALSE` — boolean false (value: 0).
+/// `FreeRTOS` `pdFALSE` — boolean false (value: 0).
 pub const PD_FALSE: FreeRtosBaseType = 0;
 
-/// FreeRTOS `pdPASS` — operation succeeded (value: 1).
+/// `FreeRTOS` `pdPASS` — operation succeeded (value: 1).
 pub const PD_PASS: FreeRtosBaseType = 1;
 
-/// FreeRTOS `pdFAIL` — operation failed (value: 0).
+/// `FreeRTOS` `pdFAIL` — operation failed (value: 0).
 pub const PD_FAIL: FreeRtosBaseType = 0;
 
-/// FreeRTOS `portMAX_DELAY` — wait indefinitely (value: `0xFFFFFFFF`).
+/// `FreeRTOS` `portMAX_DELAY` — wait indefinitely (value: `0xFFFFFFFF`).
 ///
-/// Pass this as the timeout parameter to any FreeRTOS API that accepts a
+/// Pass this as the timeout parameter to any `FreeRTOS` API that accepts a
 /// `TickType_t` timeout to wait without a timeout.
-pub const PORT_MAX_DELAY: FreeRtosTickType = 0xFFFFFFFF;
+pub const PORT_MAX_DELAY: FreeRtosTickType = 0xFFFF_FFFF;
 
-/// FreeRTOS `tskDEFAULT_INDEX_TO_NOTIFY` — default notification index (0).
+/// `FreeRTOS` `tskDEFAULT_INDEX_TO_NOTIFY` — default notification index (0).
 pub const TSK_DEFAULT_INDEX_TO_NOTIFY: FreeRtosUBaseType = 0;
 
-/// FreeRTOS `tskIDLE_PRIORITY` — default priority for the idle task (0).
+/// `FreeRTOS` `tskIDLE_PRIORITY` — default priority for the idle task (0).
 pub const TSK_IDLE_PRIORITY: FreeRtosUBaseType = 0;
 
-/// FreeRTOS `tskNO_AFFINITY` — no CPU affinity (task can run on any core).
+/// `FreeRTOS` `tskNO_AFFINITY` — no CPU affinity (task can run on any core).
 ///
 /// Used with SMP task creation functions (`xTaskCreateAffinitySet`, etc.).
 /// Value is `UBaseType_t` max (`!0`).
@@ -213,7 +213,7 @@ pub const TSK_NO_AFFINITY: FreeRtosUBaseType = !0;
 // STRUCTURES
 //===========================================================================
 
-/// FreeRTOS `TimeOut_t` — timeout tracking structure.
+/// `FreeRTOS` `TimeOut_t` — timeout tracking structure.
 ///
 /// Used with `vTaskSetTimeOutState()` and `xTaskCheckForTimeOut()` to
 /// implement bounded wait loops without risking overflow.
@@ -226,27 +226,102 @@ pub struct FreeRtosTimeOut {
     pub time_on_entering: FreeRtosTickType,
 }
 
-/// FreeRTOS heap statistics structure.
+/// `FreeRTOS` heap statistics structure.
 ///
 /// Used with `vPortGetHeapStats()` to retrieve detailed heap allocation
-/// information from the FreeRTOS memory manager.
+/// information from the `FreeRTOS` memory manager.
 #[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 pub struct FreeRtosHeapStats {
-    /// Size of the largest free block in the heap.
+    /// Total heap size currently available (sum of all free blocks).
     pub xAvailableHeapSpaceInBytes: usize,
-    /// Size of the smallest free block that has been merged.
+    /// Maximum size in bytes of all free blocks in the heap.
     pub xSizeOfLargestFreeBlockInBytes: usize,
-    /// Size of the smallest free block in the heap.
+    /// Minimum size in bytes of all free blocks in the heap.
     pub xSizeOfSmallestFreeBlockInBytes: usize,
-    /// Number of free blocks in the heap.
+    /// Number of free memory blocks in the heap.
     pub xNumberOfFreeBlocks: usize,
-    /// Minimum number of free bytes since the heap was initialized.
+    /// Minimum amount of total free memory since boot.
     pub xMinimumEverFreeBytesRemaining: usize,
-    /// Number of calls to `pvPortMalloc()` that returned NULL.
+    /// Number of calls to `pvPortMalloc()` that returned a valid block.
     pub xNumberOfSuccessfulAllocations: usize,
     /// Number of calls to `vPortFree()` that successfully freed memory.
     pub xNumberOfSuccessfulFrees: usize,
+}
+
+//===========================================================================
+// MPU MEMORY REGION AND TASK PARAMETERS STRUCTURES
+//===========================================================================
+
+/// Default number of configurable MPU regions per task.
+///
+/// Maps to `portNUM_CONFIGURABLE_REGIONS` from `portable.h`. The default is 1
+/// but port implementations may override it.
+pub const PORT_NUM_CONFIGURABLE_REGIONS: usize = 1;
+
+/// MPU region access permission flags.
+///
+/// Maps to `tskMPU_REGION_*` constants from `task.h`.
+pub const TSK_MPU_REGION_READ_ONLY: u32 = 1 << 0;
+pub const TSK_MPU_REGION_READ_WRITE: u32 = 1 << 1;
+pub const TSK_MPU_REGION_EXECUTE_NEVER: u32 = 1 << 2;
+pub const TSK_MPU_REGION_NORMAL_MEMORY: u32 = 1 << 3;
+pub const TSK_MPU_REGION_DEVICE_MEMORY: u32 = 1 << 4;
+pub const TSK_MPU_REGION_NON_SHAREABLE: u32 = 1 << 6;
+pub const TSK_MPU_REGION_OUTER_SHAREABLE: u32 = 1 << 7;
+pub const TSK_MPU_REGION_INNER_SHAREABLE: u32 = 1 << 8;
+
+/// `FreeRTOS` MPU memory region definition.
+///
+/// Maps to `MemoryRegion_t` from `task.h`. Each region specifies a base
+/// address, length, and access permission parameters.
+#[derive(Copy, Clone, Debug, Default)]
+#[repr(C)]
+pub struct FreeRtosMemoryRegion {
+    /// Base address of the memory region.
+    pub base_address: FreeRtosVoidPtr,
+    /// Length of the region in bytes.
+    pub length_in_bytes: u32,
+    /// Access permission flags (`TSK_MPU_REGION_*`).
+    pub parameters: u32,
+}
+
+/// `FreeRTOS` MPU task parameters.
+///
+/// Maps to `TaskParameters_t` from `task.h`. Used when creating MPU-restricted
+/// tasks via `xTaskCreateRestricted()` and related functions.
+///
+/// # Layout Note
+///
+/// In the C `TaskParameters_t`, the `task_buffer` field (`pxTaskBuffer`) is
+/// conditionally compiled and only present when **both**:
+/// - `portUSING_MPU_WRAPPERS == 1`
+/// - `configSUPPORT_STATIC_ALLOCATION == 1`
+///
+/// This Rust struct always includes `task_buffer`. Since MPU-restricted task
+/// creation functions (`xTaskCreateRestricted*`) require `portUSING_MPU_WRAPPERS == 1`,
+/// this struct should only be used in MPU-enabled configurations where the
+/// field is present. **Do not pass this struct to FFI if your FreeRTOS config
+/// does not enable both MPU wrappers and static allocation.**
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct FreeRtosTaskParameters {
+    /// Task entry function.
+    pub task_code: FreeRtosTaskFunction,
+    /// Null-terminated task name string.
+    pub name: FreeRtosCharPtr,
+    /// Stack depth in words (not bytes).
+    pub stack_depth: FreeRtosConfigStackDepthType,
+    /// Parameter passed to the task function.
+    pub parameters: FreeRtosVoidPtr,
+    /// Task priority (may include `portPRIVILEGE_BIT`).
+    pub priority: FreeRtosUBaseType,
+    /// Stack buffer pointer, or null for dynamic allocation.
+    pub stack_buffer: FreeRtosStackType,
+    /// MPU region definitions.
+    pub regions: [FreeRtosMemoryRegion; PORT_NUM_CONFIGURABLE_REGIONS],
+    /// Static task buffer (`StaticTask_t*`), or null for dynamic allocation.
+    pub task_buffer: FreeRtosStaticTask,
 }
 
 //===========================================================================
@@ -298,39 +373,67 @@ pub enum FreeRtosQueueSendPosition {
 
 /// Timer command enumeration.
 ///
-/// Used internally by the timer command queue.
+/// Used internally by the timer command queue. Values match the `tmrCOMMAND_*`
+/// macros defined in `timers.h`.
+///
+/// | Variant                      | FreeRTOS Constant                       | Value |
+/// |------------------------------|-----------------------------------------|-------|
+/// | `ExecuteCallbackFromISR`     | `tmrCOMMAND_EXECUTE_CALLBACK_FROM_ISR`  | -2    |
+/// | `ExecuteCallback`            | `tmrCOMMAND_EXECUTE_CALLBACK`           | -1    |
+/// | `StartDontTrace`             | `tmrCOMMAND_START_DONT_TRACE`           | 0     |
+/// | `Start`                      | `tmrCOMMAND_START`                      | 1     |
+/// | `Reset`                      | `tmrCOMMAND_RESET`                      | 2     |
+/// | `Stop`                       | `tmrCOMMAND_STOP`                       | 3     |
+/// | `ChangePeriod`               | `tmrCOMMAND_CHANGE_PERIOD`              | 4     |
+/// | `Delete`                     | `tmrCOMMAND_DELETE`                     | 5     |
+/// | `StartFromISR`               | `tmrCOMMAND_START_FROM_ISR`             | 6     |
+/// | `ResetFromISR`               | `tmrCOMMAND_RESET_FROM_ISR`             | 7     |
+/// | `StopFromISR`                | `tmrCOMMAND_STOP_FROM_ISR`              | 8     |
+/// | `ChangePeriodFromISR`        | `tmrCOMMAND_CHANGE_PERIOD_FROM_ISR`     | 9     |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(i32)]
 pub enum FreeRtosTimerCommand {
-    /// Start a timer from a task context.
-    Start = 0,
-    /// Stop a timer from a task context.
-    Stop = 1,
-    /// Change a timer's period from a task context.
-    ChangePeriod = 2,
-    /// Delete a timer from a task context.
-    Delete = 3,
-    /// Reset a timer from a task context.
-    Reset = 4,
-    /// Start a timer from an ISR context.
-    StartFromISR = 5,
-    /// Stop a timer from an ISR context.
-    StopFromISR = 6,
-    /// Change a timer's period from an ISR context.
-    ChangePeriodFromISR = 7,
-    /// Delete a timer from an ISR context.
-    DeleteFromISR = 8,
-    /// Reset a timer from an ISR context.
-    ResetFromISR = 9,
+    /// Execute a callback from an ISR context (`tmrCOMMAND_EXECUTE_CALLBACK_FROM_ISR`).
+    ExecuteCallbackFromISR = -2,
+    /// Execute a callback from a task context (`tmrCOMMAND_EXECUTE_CALLBACK`).
+    ExecuteCallback = -1,
+    /// Start without trace (`tmrCOMMAND_START_DONT_TRACE`).
+    StartDontTrace = 0,
+    /// Start a timer from a task context (`tmrCOMMAND_START`).
+    Start = 1,
+    /// Reset a timer from a task context (`tmrCOMMAND_RESET`).
+    Reset = 2,
+    /// Stop a timer from a task context (`tmrCOMMAND_STOP`).
+    Stop = 3,
+    /// Change a timer's period from a task context (`tmrCOMMAND_CHANGE_PERIOD`).
+    ChangePeriod = 4,
+    /// Delete a timer from a task context (`tmrCOMMAND_DELETE`).
+    Delete = 5,
+    /// First ISR command / Start a timer from an ISR context (`tmrCOMMAND_START_FROM_ISR`).
+    StartFromISR = 6,
+    /// Reset a timer from an ISR context (`tmrCOMMAND_RESET_FROM_ISR`).
+    ResetFromISR = 7,
+    /// Stop a timer from an ISR context (`tmrCOMMAND_STOP_FROM_ISR`).
+    StopFromISR = 8,
+    /// Change a timer's period from an ISR context (`tmrCOMMAND_CHANGE_PERIOD_FROM_ISR`).
+    ChangePeriodFromISR = 9,
 }
 
 /// Task state enumeration.
 ///
-/// Represents the current state of a FreeRTOS task.
+/// Represents the current state of a `FreeRTOS` task. Uses `repr(u32)` to
+/// match the 4-byte size of C `enum eTaskState` on 32-bit targets.
 ///
-/// **Note:** Uses `repr(u32)` to match C `enum eTaskState` which is `int`-sized
-/// (4 bytes on 32-bit targets). Using `u8` would cause struct layout mismatches
-/// when embedded in `FreeRtosTaskStatusFfi`.
+/// # Mapping
+///
+/// | Variant     | FreeRTOS Constant | Value |
+/// |-------------|-------------------|-------|
+/// | `Running`   | `eRunning`        | 0     |
+/// | `Ready`     | `eReady`          | 1     |
+/// | `Blocked`   | `eBlocked`        | 2     |
+/// | `Suspended` | `eSuspended`      | 3     |
+/// | `Deleted`   | `eDeleted`        | 4     |
+/// | `Invalid`   | `eInvalid`        | 5     |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum FreeRtosTaskState {
@@ -344,15 +447,17 @@ pub enum FreeRtosTaskState {
     Suspended = 3,
     /// The task has been deleted but its TCB has not yet been freed.
     Deleted = 4,
+    /// Invalid/not a real task handle (`eInvalid`).
+    Invalid = 5,
 }
 
 //===========================================================================
 // ERROR TYPE
 //===========================================================================
 
-/// Error type for FreeRTOS API operations.
+/// Error type for `FreeRTOS` API operations.
 ///
-/// Returned by safe wrapper functions when a FreeRTOS API call fails.
+/// Returned by safe wrapper functions when a `FreeRTOS` API call fails.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(C)]
 pub enum FreeRtosError {
@@ -386,7 +491,7 @@ pub enum FreeRtosError {
 // TASK STATUS STRUCTURE
 //===========================================================================
 
-/// FreeRTOS `TaskStatus_t` — detailed task status information.
+/// `FreeRTOS` `TaskStatus_t` — detailed task status information.
 ///
 /// Filled by `uxTaskGetSystemState()` and `vTaskGetInfo()`.
 ///
@@ -438,6 +543,12 @@ const _: () = assert!(core::mem::size_of::<FreeRtosUBaseType>() == 4);
 const _: () = assert!(core::mem::size_of::<FreeRtosTickType>() == 4);
 const _: () = assert!(core::mem::size_of::<FreeRtosConfigStackDepthType>() == 2);
 
+// Struct layout verification (ARM Cortex-M7, 32-bit pointers)
+// TaskStatus_t: handle(4) + name(4) + number(4) + state(4) + curr_pri(4) + base_pri(4) + runtime(4) + stack_base(4) + hwm(2) + pad(2) = 36
+const _: () = assert!(core::mem::size_of::<FreeRtosTaskStatusFfi>() == 36);
+// TimeOut_t: overflow_count(4) + time_on_entering(4) = 8
+const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == 8);
+
 // Handle types are pointer-sized
 const _: () = assert!(core::mem::size_of::<FreeRtosTaskHandle>() == core::mem::size_of::<*const c_void>());
 const _: () = assert!(core::mem::size_of::<FreeRtosQueueHandle>() == core::mem::size_of::<*const c_void>());
@@ -463,22 +574,30 @@ const _: () = assert!(FreeRtosTaskState::Ready as u32 == 1);
 const _: () = assert!(FreeRtosTaskState::Blocked as u32 == 2);
 const _: () = assert!(FreeRtosTaskState::Suspended as u32 == 3);
 const _: () = assert!(FreeRtosTaskState::Deleted as u32 == 4);
+const _: () = assert!(FreeRtosTaskState::Invalid as u32 == 5);
 
-const _: () = assert!(FreeRtosTimerCommand::Start as u32 == 0);
-const _: () = assert!(FreeRtosTimerCommand::Stop as u32 == 1);
-const _: () = assert!(FreeRtosTimerCommand::ChangePeriod as u32 == 2);
-const _: () = assert!(FreeRtosTimerCommand::Delete as u32 == 3);
-const _: () = assert!(FreeRtosTimerCommand::Reset as u32 == 4);
+const _: () = assert!(FreeRtosTimerCommand::ExecuteCallbackFromISR as i32 == -2);
+const _: () = assert!(FreeRtosTimerCommand::ExecuteCallback as i32 == -1);
+const _: () = assert!(FreeRtosTimerCommand::StartDontTrace as i32 == 0);
+const _: () = assert!(FreeRtosTimerCommand::Start as i32 == 1);
+const _: () = assert!(FreeRtosTimerCommand::Reset as i32 == 2);
+const _: () = assert!(FreeRtosTimerCommand::Stop as i32 == 3);
+const _: () = assert!(FreeRtosTimerCommand::ChangePeriod as i32 == 4);
+const _: () = assert!(FreeRtosTimerCommand::Delete as i32 == 5);
+const _: () = assert!(FreeRtosTimerCommand::StartFromISR as i32 == 6);
+const _: () = assert!(FreeRtosTimerCommand::ResetFromISR as i32 == 7);
+const _: () = assert!(FreeRtosTimerCommand::StopFromISR as i32 == 8);
+const _: () = assert!(FreeRtosTimerCommand::ChangePeriodFromISR as i32 == 9);
 
 // Constants
 const _: () = assert!(PD_TRUE == 1);
 const _: () = assert!(PD_FALSE == 0);
 const _: () = assert!(PD_PASS == 1);
 const _: () = assert!(PD_FAIL == 0);
-const _: () = assert!(PORT_MAX_DELAY == 0xFFFFFFFF);
+const _: () = assert!(PORT_MAX_DELAY == 0xFFFF_FFFF);
 const _: () = assert!(TSK_DEFAULT_INDEX_TO_NOTIFY == 0);
 const _: () = assert!(TSK_IDLE_PRIORITY == 0);
-const _: () = assert!(TSK_NO_AFFINITY == 0xFFFFFFFF);
+const _: () = assert!(TSK_NO_AFFINITY == 0xFFFF_FFFF);
 
 // Struct layouts
 const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == core::mem::size_of::<FreeRtosBaseType>() + core::mem::size_of::<FreeRtosTickType>());
@@ -495,4 +614,17 @@ const _: () = assert!(core::mem::size_of::<FreeRtosTaskState>() == 4);
 
 // NotifyAction is repr(C) — matches C enum eNotifyAction (int)
 const _: () = assert!(core::mem::size_of::<FreeRtosNotifyAction>() == 4);
+
+// MPU region flags
+const _: () = assert!(TSK_MPU_REGION_READ_ONLY == 1);
+const _: () = assert!(TSK_MPU_REGION_READ_WRITE == 2);
+const _: () = assert!(TSK_MPU_REGION_EXECUTE_NEVER == 4);
+const _: () = assert!(TSK_MPU_REGION_NORMAL_MEMORY == 8);
+const _: () = assert!(TSK_MPU_REGION_DEVICE_MEMORY == 16);
+
+// FreeRtosMemoryRegion is 3 pointers/ints on 32-bit
+const _: () = assert!(core::mem::size_of::<FreeRtosMemoryRegion>() == core::mem::size_of::<usize>() + 8);
+
+// PORT_NUM_CONFIGURABLE_REGIONS default
+const _: () = assert!(PORT_NUM_CONFIGURABLE_REGIONS >= 1);
 

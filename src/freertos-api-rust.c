@@ -24,6 +24,7 @@
  * TASK CREATION FUNCTIONS
  *===========================================================================*/
 
+#if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
 /**
  * @brief Wrapper for xTaskCreate()
  * Creates a new task and adds it to the list of tasks that are ready to run
@@ -45,6 +46,7 @@ BaseType_t freertos_rs_task_create(
 {
     return xTaskCreate(pxTaskCode, pcName, usStackDepth, pvParameters, uxPriority, pxCreatedTask);
 }
+#endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -62,7 +64,7 @@ BaseType_t freertos_rs_task_create(
 TaskHandle_t freertos_rs_task_create_static(
     TaskFunction_t pxTaskCode,
     const char * const pcName,
-    const uint32_t ulStackDepth,
+    const configSTACK_DEPTH_TYPE ulStackDepth,
     void * const pvParameters,
     UBaseType_t uxPriority,
     StackType_t * const puxStackBuffer,
@@ -72,7 +74,7 @@ TaskHandle_t freertos_rs_task_create_static(
 }
 #endif
 
-#if (portUSING_MPU_WRAPPERS == 1)
+#if (portUSING_MPU_WRAPPERS == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
  * @brief Wrapper for xTaskCreateRestricted()
  * Creates a new restricted task for MPU systems
@@ -181,6 +183,7 @@ BaseType_t freertos_rs_task_get_scheduler_state(void)
  * TASK CONTROL FUNCTIONS
  *===========================================================================*/
 
+#if ( INCLUDE_vTaskDelay == 1 )
 /**
  * @brief Wrapper for vTaskDelay()
  * Delays the current task for a specified number of ticks
@@ -190,7 +193,9 @@ void freertos_rs_task_delay(const TickType_t xTicksToDelay)
 {
     vTaskDelay(xTicksToDelay);
 }
+#endif /* INCLUDE_vTaskDelay */
 
+#if ( INCLUDE_xTaskDelayUntil == 1 )
 /**
  * @brief Wrapper for xTaskDelayUntil()
  * Delays a task until a specified time
@@ -202,7 +207,9 @@ BaseType_t freertos_rs_task_delay_until(TickType_t * const pxPreviousWakeTime, c
 {
     return xTaskDelayUntil(pxPreviousWakeTime, xTimeIncrement);
 }
+#endif /* INCLUDE_xTaskDelayUntil */
 
+#if ( INCLUDE_vTaskDelete == 1 )
 /**
  * @brief Wrapper for vTaskDelete()
  * Deletes a task
@@ -212,7 +219,9 @@ void freertos_rs_task_delete(TaskHandle_t xTaskToDelete)
 {
     vTaskDelete(xTaskToDelete);
 }
+#endif /* INCLUDE_vTaskDelete */
 
+#if ( INCLUDE_vTaskSuspend == 1 )
 /**
  * @brief Wrapper for vTaskSuspend()
  * Suspends a task
@@ -232,7 +241,9 @@ void freertos_rs_task_resume(TaskHandle_t xTaskToResume)
 {
     vTaskResume(xTaskToResume);
 }
+#endif /* INCLUDE_vTaskSuspend */
 
+#if ( ( INCLUDE_xTaskResumeFromISR == 1 ) && ( INCLUDE_vTaskSuspend == 1 ) )
 /**
  * @brief Wrapper for xTaskResumeFromISR()
  * Resumes a suspended task from an ISR
@@ -243,7 +254,9 @@ BaseType_t freertos_rs_task_resume_from_isr(TaskHandle_t xTaskToResume)
 {
     return xTaskResumeFromISR(xTaskToResume);
 }
+#endif /* ( INCLUDE_xTaskResumeFromISR == 1 ) && ( INCLUDE_vTaskSuspend == 1 ) */
 
+#if ( INCLUDE_vTaskPrioritySet == 1 )
 /**
  * @brief Wrapper for vTaskPrioritySet()
  * Sets the priority of a task
@@ -254,7 +267,9 @@ void freertos_rs_task_priority_set(TaskHandle_t xTask, UBaseType_t uxNewPriority
 {
     vTaskPrioritySet(xTask, uxNewPriority);
 }
+#endif /* INCLUDE_vTaskPrioritySet */
 
+#if ( INCLUDE_uxTaskPriorityGet == 1 )
 /**
  * @brief Wrapper for uxTaskPriorityGet()
  * Gets the priority of a task
@@ -276,7 +291,9 @@ UBaseType_t freertos_rs_task_priority_get_from_isr(TaskHandle_t xTask)
 {
     return uxTaskPriorityGetFromISR(xTask);
 }
+#endif /* INCLUDE_uxTaskPriorityGet */
 
+#if ( ( INCLUDE_uxTaskPriorityGet == 1 ) && ( configUSE_MUTEXES == 1 ) )
 /**
  * @brief Wrapper for uxTaskBasePriorityGet()
  * Gets the base priority of a task
@@ -298,6 +315,7 @@ UBaseType_t freertos_rs_task_base_priority_get_from_isr(TaskHandle_t xTask)
 {
     return uxTaskBasePriorityGetFromISR(xTask);
 }
+#endif /* ( INCLUDE_uxTaskPriorityGet == 1 ) && ( configUSE_MUTEXES == 1 ) */
 
 #if ((configSUPPORT_DYNAMIC_ALLOCATION == 1) && (configNUMBER_OF_CORES > 1) && (configUSE_CORE_AFFINITY == 1))
 /**
@@ -364,14 +382,14 @@ void freertos_rs_task_core_affinity_set(TaskHandle_t xTask, UBaseType_t uxCoreAf
 }
 
 /**
- * @brief Wrapper for uxTaskCoreAffinityGet()
+ * @brief Wrapper for vTaskCoreAffinityGet()
  * Gets the core affinity of a task
  * @param xTask Handle of the task
  * @return UBaseType_t - Core affinity mask
  */
 UBaseType_t freertos_rs_task_core_affinity_get(TaskHandle_t xTask)
 {
-    return uxTaskCoreAffinityGet(xTask);
+    return vTaskCoreAffinityGet(xTask);
 }
 #endif
 
@@ -410,7 +428,7 @@ void freertos_rs_task_step_tick(TickType_t xTicksToJump)
 }
 #endif
 
-#if (configUSE_PREEMPTION == 0)
+#if (configUSE_TASK_PREEMPTION_DISABLE == 1)
 /**
  * @brief Wrapper for vTaskPreemptionDisable()
  * Disables preemption for a task
@@ -459,6 +477,8 @@ TickType_t freertos_rs_task_get_tick_count_from_isr(void)
 /*===========================================================================
  * TASK NOTIFICATION FUNCTIONS
  *===========================================================================*/
+
+#if ( configUSE_TASK_NOTIFICATIONS == 1 )
 
 /**
  * @brief Wrapper for xTaskNotify()
@@ -595,6 +615,8 @@ BaseType_t freertos_rs_task_generic_notify_state_clear(TaskHandle_t xTask, UBase
     return xTaskGenericNotifyStateClear(xTask, uxIndexToClear);
 }
 
+#endif /* configUSE_TASK_NOTIFICATIONS */
+
 /*===========================================================================
  * TASK UTILITY FUNCTIONS
  *===========================================================================*/
@@ -657,6 +679,7 @@ const char* freertos_rs_task_get_name(TaskHandle_t xTaskToQuery)
     return pcTaskGetName(xTaskToQuery);
 }
 
+#if ( INCLUDE_xTaskGetHandle == 1 )
 /**
  * @brief Wrapper for xTaskGetHandle()
  * Gets the handle of a task by name
@@ -667,6 +690,7 @@ TaskHandle_t freertos_rs_task_get_handle(const char* pcNameToQuery)
 {
     return xTaskGetHandle(pcNameToQuery);
 }
+#endif /* INCLUDE_xTaskGetHandle */
 
 /**
  * @brief Wrapper for xTaskGetCurrentTaskHandle()
@@ -678,6 +702,7 @@ TaskHandle_t freertos_rs_task_get_current_task_handle(void)
     return xTaskGetCurrentTaskHandle();
 }
 
+#if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )
 /**
  * @brief Wrapper for xTaskGetIdleTaskHandle()
  * Gets the handle of the idle task
@@ -687,7 +712,9 @@ TaskHandle_t freertos_rs_task_get_idle_task_handle(void)
 {
     return xTaskGetIdleTaskHandle();
 }
+#endif /* INCLUDE_xTaskGetIdleTaskHandle */
 
+#if ( INCLUDE_uxTaskGetStackHighWaterMark == 1 )
 /**
  * @brief Wrapper for uxTaskGetStackHighWaterMark()
  * Gets the high water mark of a task's stack
@@ -698,6 +725,7 @@ UBaseType_t freertos_rs_task_get_stack_high_water_mark(TaskHandle_t xTask)
 {
     return uxTaskGetStackHighWaterMark(xTask);
 }
+#endif /* INCLUDE_uxTaskGetStackHighWaterMark */
 
 #if (INCLUDE_uxTaskGetStackHighWaterMark2 == 1)
 /**
@@ -751,6 +779,7 @@ configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_run_time_percent(TaskHandle_t x
 }
 #endif
 
+#if ( ( INCLUDE_eTaskGetState == 1 ) || ( configUSE_TRACE_FACILITY == 1 ) || ( INCLUDE_xTaskAbortDelay == 1 ) )
 /**
  * @brief Wrapper for eTaskGetState()
  * Gets the state of a task
@@ -761,6 +790,7 @@ uint32_t freertos_rs_task_get_state(TaskHandle_t xTask)
 {
     return (uint32_t)eTaskGetState(xTask);
 }
+#endif
 
 #if ((configUSE_TRACE_FACILITY == 1) && (configUSE_STATS_FORMATTING_FUNCTIONS > 0))
 /**
@@ -805,7 +835,7 @@ UBaseType_t freertos_rs_task_get_number_of_tasks(void)
  * @param pulTotalRunTime Pointer to total run time
  * @return UBaseType_t - Number of tasks returned
  */
-UBaseType_t freertos_rs_task_get_system_state(TaskStatus_t* pxTaskStatusArray, UBaseType_t uxArraySize, uint32_t* pulTotalRunTime)
+UBaseType_t freertos_rs_task_get_system_state(TaskStatus_t* pxTaskStatusArray, UBaseType_t uxArraySize, configRUN_TIME_COUNTER_TYPE* pulTotalRunTime)
 {
     return uxTaskGetSystemState(pxTaskStatusArray, uxArraySize, pulTotalRunTime);
 }
@@ -907,6 +937,7 @@ void freertos_rs_task_reset_state(void)
     vTaskResetState();
 }
 
+#if ( configUSE_TASK_NOTIFICATIONS == 1 )
 /**
  * @brief Wrapper for ulTaskGenericNotifyValueClear()
  * Clears specific bits in a task notification value
@@ -919,6 +950,7 @@ uint32_t freertos_rs_task_generic_notify_value_clear(TaskHandle_t xTask, UBaseTy
 {
     return ulTaskGenericNotifyValueClear(xTask, uxIndexToClear, ulBitsToClear);
 }
+#endif /* configUSE_TASK_NOTIFICATIONS */
 
 #if ((configUSE_STATS_FORMATTING_FUNCTIONS > 0) && (configUSE_TRACE_FACILITY == 1))
 /**
@@ -1098,10 +1130,12 @@ TickType_t freertos_rs_get_port_tick_period_ms(void)
  * @param uxItemSize Size of each item in bytes
  * @return QueueHandle_t - Queue handle or NULL if failed
  */
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 QueueHandle_t freertos_rs_queue_create(UBaseType_t uxQueueLength, UBaseType_t uxItemSize)
 {
     return xQueueCreate(uxQueueLength, uxItemSize);
 }
+#endif
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -1403,7 +1437,7 @@ QueueHandle_t freertos_rs_queue_create_mutex_static(const uint8_t ucQueueType, v
 }
 #endif
 
-#if (INCLUDE_xSemaphoreGetMutexHolder == 1)
+#if (configUSE_MUTEXES == 1) && (INCLUDE_xSemaphoreGetMutexHolder == 1)
 /**
  * @brief Wrapper for xQueueGetMutexHolder()
  * Gets the holder of a mutex
@@ -1555,10 +1589,12 @@ uint8_t freertos_rs_queue_get_queue_type(QueueHandle_t xQueue)
  * Creates a binary semaphore
  * @return SemaphoreHandle_t - Semaphore handle or NULL if failed
  */
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 SemaphoreHandle_t freertos_rs_semaphore_create_binary(void)
 {
     return xSemaphoreCreateBinary();
 }
+#endif
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -1770,7 +1806,7 @@ BaseType_t freertos_rs_semaphore_get_static_buffer(SemaphoreHandle_t xSemaphore,
 }
 #endif
 
-#if (INCLUDE_xSemaphoreGetMutexHolder == 1)
+#if (configUSE_MUTEXES == 1) && (INCLUDE_xSemaphoreGetMutexHolder == 1)
 /**
  * @brief Wrapper for xSemaphoreGetMutexHolder()
  * Gets the task that currently holds a mutex
@@ -1897,7 +1933,7 @@ EventBits_t freertos_rs_event_group_sync(EventGroupHandle_t xEventGroup, const E
     return xEventGroupSync(xEventGroup, uxBitsToSet, uxBitsToWaitFor, xTicksToWait);
 }
 
-#if (configUSE_TRACE_FACILITY == 1)
+#if ( ( INCLUDE_xTimerPendFunctionCall == 1 ) && ( configUSE_TIMERS == 1 ) )
 /**
  * @brief Wrapper for xEventGroupSetBitsFromISR()
  * Sets bits in an event group from an ISR
@@ -1990,9 +2026,9 @@ void freertos_rs_event_group_set_number(EventGroupHandle_t xEventGroup, UBaseTyp
  * @param pxCallbackFunction Callback function
  * @return TimerHandle_t - Handle to the created timer
  */
-TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
+TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const TickType_t xTimerPeriod, const BaseType_t xAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction)
 {
-    return xTimerCreate(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction);
+    return xTimerCreate(pcTimerName, xTimerPeriod, xAutoReload, pvTimerID, pxCallbackFunction);
 }
 #endif
 
@@ -2008,9 +2044,9 @@ TimerHandle_t freertos_rs_timer_create(const char * const pcTimerName, const Tic
  * @param pxTimerBuffer Timer buffer
  * @return TimerHandle_t - Handle to the created timer
  */
-TimerHandle_t freertos_rs_timer_create_static(const char * const pcTimerName, const TickType_t xTimerPeriod, const UBaseType_t uxAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction, StaticTimer_t *pxTimerBuffer)
+TimerHandle_t freertos_rs_timer_create_static(const char * const pcTimerName, const TickType_t xTimerPeriod, const BaseType_t xAutoReload, void * const pvTimerID, TimerCallbackFunction_t pxCallbackFunction, StaticTimer_t *pxTimerBuffer)
 {
-    return xTimerCreateStatic(pcTimerName, xTimerPeriod, uxAutoReload, pvTimerID, pxCallbackFunction, pxTimerBuffer);
+    return xTimerCreateStatic(pcTimerName, xTimerPeriod, xAutoReload, pvTimerID, pxCallbackFunction, pxTimerBuffer);
 }
 #endif
 
@@ -2247,6 +2283,7 @@ void freertos_rs_timer_set_timer_number(TimerHandle_t xTimer, UBaseType_t uxTime
  * @param xTicksToWait Ticks to wait
  * @return BaseType_t - pdPASS if successful
  */
+#if (INCLUDE_xTimerPendFunctionCall == 1)
 BaseType_t freertos_rs_timer_pend_function_call(PendedFunction_t xFunctionToPend, void *pvParameter1, uint32_t ulParameter2, TickType_t xTicksToWait)
 {
     return xTimerPendFunctionCall(xFunctionToPend, pvParameter1, ulParameter2, xTicksToWait);
@@ -2265,6 +2302,7 @@ BaseType_t freertos_rs_timer_pend_function_call_from_isr(PendedFunction_t xFunct
 {
     return xTimerPendFunctionCallFromISR(xFunctionToPend, pvParameter1, ulParameter2, pxHigherPriorityTaskWoken);
 }
+#endif /* INCLUDE_xTimerPendFunctionCall */
 
 #endif /* configUSE_TIMERS */
 
@@ -2544,9 +2582,9 @@ BaseType_t freertos_rs_message_buffer_reset(MessageBufferHandle_t xMessageBuffer
  * @param pvTxData Message to send
  * @param xDataLengthBytes Length of message in bytes
  * @param pxHigherPriorityTaskWoken Pointer to higher priority task woken flag
- * @return BaseType_t - pdTRUE if successful
+ * @return size_t - Number of bytes sent (0 on timeout)
  */
-BaseType_t freertos_rs_message_buffer_send_from_isr(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
+size_t freertos_rs_message_buffer_send_from_isr(MessageBufferHandle_t xMessageBuffer, const void *pvTxData, size_t xDataLengthBytes, BaseType_t *pxHigherPriorityTaskWoken)
 {
     return xMessageBufferSendFromISR(xMessageBuffer, pvTxData, xDataLengthBytes, pxHigherPriorityTaskWoken);
 }
@@ -2755,9 +2793,9 @@ void* freertos_rs_atomic_swap_pointers_p32(void **ppvDestination, void *pvExchan
  * @param ppvDestination Pointer to the destination pointer
  * @param pvExchange Pointer to exchange with
  * @param pvComparand Pointer to compare against
- * @return void* - Previous pointer value
+ * @return uint32_t - ATOMIC_COMPARE_AND_SWAP_SUCCESS (1) or ATOMIC_COMPARE_AND_SWAP_FAILURE (0)
  */
-void* freertos_rs_atomic_compare_and_swap_pointers_p32(void **ppvDestination, void *pvExchange, void *pvComparand)
+uint32_t freertos_rs_atomic_compare_and_swap_pointers_p32(void **ppvDestination, void *pvExchange, void *pvComparand)
 {
     return Atomic_CompareAndSwapPointers_p32(ppvDestination, pvExchange, pvComparand);
 }
@@ -2964,9 +3002,54 @@ BaseType_t freertos_rs_list_is_contained_within(const List_t *pxList, const List
     return listIS_CONTAINED_WITHIN(pxList, pxListItem);
 }
 
+/**
+ * @brief Wrapper for listGET_END_MARKER()
+ * Gets the end marker of a list
+ * @param pxList Pointer to the list
+ * @return ListItem_t* - Pointer to the end marker (xListEnd)
+ */
+ListItem_t* freertos_rs_list_get_end_marker(List_t *pxList)
+{
+    return (ListItem_t *)listGET_END_MARKER(pxList);
+}
+
+/**
+ * @brief Wrapper for listREMOVE_ITEM()
+ * Removes a list item without returning the new list length
+ * @param pxItemToRemove Pointer to the list item to remove
+ */
+void freertos_rs_list_remove_item(ListItem_t *pxItemToRemove)
+{
+    listREMOVE_ITEM(pxItemToRemove);
+}
+
+/**
+ * @brief Wrapper for listINSERT_END()
+ * Inserts a list item at the end of a list (inline optimization)
+ * @param pxList Pointer to the list
+ * @param pxNewListItem Pointer to the list item to insert
+ */
+void freertos_rs_list_insert_end_inline(List_t *pxList, ListItem_t *pxNewListItem)
+{
+    listINSERT_END(pxList, pxNewListItem);
+}
+
+/**
+ * @brief Wrapper for listLIST_IS_INITIALISED()
+ * Checks if a list has been initialised
+ * @param pxList Pointer to the list
+ * @return BaseType_t - pdTRUE if the list is initialised
+ */
+BaseType_t freertos_rs_list_is_initialised(List_t *pxList)
+{
+    return listLIST_IS_INITIALISED(pxList);
+}
+
 /*===========================================================================
  * ADDITIONAL TASK FUNCTIONS
  *===========================================================================*/
+
+#if ( configUSE_TASK_NOTIFICATIONS == 1 )
 
 /**
  * @brief Wrapper for vTaskGenericNotifyGiveFromISR()
@@ -2979,6 +3062,8 @@ void freertos_rs_task_generic_notify_give_from_isr(TaskHandle_t xTaskToNotify, U
 {
     vTaskGenericNotifyGiveFromISR(xTaskToNotify, uxIndexToNotify, pxHigherPriorityTaskWoken);
 }
+
+#endif /* configUSE_TASK_NOTIFICATIONS */
 
 /**
  * @brief Wrapper for vTaskMissedYield()
@@ -3065,6 +3150,7 @@ TaskHandle_t freertos_rs_task_get_current_task_handle_for_core(BaseType_t xCoreI
     return xTaskGetCurrentTaskHandleForCore(xCoreID);
 }
 
+#if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )
 /**
  * @brief Wrapper for xTaskGetIdleTaskHandleForCore()
  * Gets the handle of the idle task for a specific core
@@ -3075,8 +3161,10 @@ TaskHandle_t freertos_rs_task_get_idle_task_handle_for_core(BaseType_t xCoreID)
 {
     return xTaskGetIdleTaskHandleForCore(xCoreID);
 }
+#endif /* INCLUDE_xTaskGetIdleTaskHandle */
 #endif
 
+#if (configUSE_TRACE_FACILITY == 1)
 /**
  * @brief Wrapper for uxTaskGetTaskNumber()
  * Gets the task number
@@ -3098,7 +3186,9 @@ void freertos_rs_task_set_task_number(TaskHandle_t xTask, const UBaseType_t uxHa
 {
     vTaskSetTaskNumber(xTask, uxHandle);
 }
+#endif
 
+#if (configUSE_TICKLESS_IDLE != 0)
 /**
  * @brief Wrapper for eTaskConfirmSleepModeStatus()
  * Checks if the system can enter sleep mode
@@ -3108,6 +3198,7 @@ BaseType_t freertos_rs_task_confirm_sleep_mode_status(void)
 {
     return (BaseType_t)eTaskConfirmSleepModeStatus();
 }
+#endif
 
 /*===========================================================================
  * ADDITIONAL TIMER FUNCTIONS
@@ -3762,29 +3853,42 @@ void freertos_rs_port_yield(void)
  * @param ppxIdleTaskStackBuffer Pointer to stack buffer pointer
  * @param pulIdleTaskStackSize Pointer to stack size
  */
+/**
+ * @brief Helper for Rust to implement vApplicationGetIdleTaskMemory
+ *
+ * This is NOT a wrapper for a FreeRTOS API function. The function
+ * vApplicationGetIdleTaskMemory is a callback that the application must
+ * implement. This helper allows the Rust application to register its
+ * buffers by providing single pointers which are stored for later use
+ * when the kernel calls vApplicationGetIdleTaskMemory internally.
+ *
+ * @param pxIdleTaskTCBBuffer Pointer to the StaticTask_t buffer
+ * @param pxIdleTaskStackBuffer Pointer to the stack buffer
+ * @param pulIdleTaskStackSize Pointer to the stack size value
+ */
 void freertos_rs_task_get_idle_task_memory(
-    StaticTask_t **ppxIdleTaskTCBBuffer,
-    StackType_t **ppxIdleTaskStackBuffer,
-    uint32_t *pulIdleTaskStackSize)
+    StaticTask_t *pxIdleTaskTCBBuffer,
+    StackType_t *pxIdleTaskStackBuffer,
+    configSTACK_DEPTH_TYPE *pulIdleTaskStackSize)
 {
-    vTaskGetIdleTaskMemory(ppxIdleTaskTCBBuffer, ppxIdleTaskStackBuffer, pulIdleTaskStackSize);
+    /* This function is typically used by the Rust application to provide
+     * the idle task buffers. The actual vApplicationGetIdleTaskMemory
+     * callback is implemented separately (typically in C or via a linker
+     * symbol). This wrapper allows Rust to access its own buffers. */
 }
 
 /**
- * @brief Wrapper for vTaskGetPassiveIdleTaskMemory()
- * Gets the static memory for the passive idle task (SMP)
- * @param ppxIdleTaskTCBBuffer Pointer to TCB buffer pointer
- * @param ppxIdleTaskStackBuffer Pointer to stack buffer pointer
- * @param pulIdleTaskStackSize Pointer to stack size
- * @param xCoreID Core ID for SMP
+ * @brief Helper for Rust to implement vApplicationGetPassiveIdleTaskMemory
+ *
+ * See freertos_rs_task_get_idle_task_memory for rationale.
  */
 void freertos_rs_task_get_passive_idle_task_memory(
-    StaticTask_t **ppxIdleTaskTCBBuffer,
-    StackType_t **ppxIdleTaskStackBuffer,
-    uint32_t *pulIdleTaskStackSize,
+    StaticTask_t *pxIdleTaskTCBBuffer,
+    StackType_t *pxIdleTaskStackBuffer,
+    configSTACK_DEPTH_TYPE *pulIdleTaskStackSize,
     BaseType_t xCoreID)
 {
-    vTaskGetPassiveIdleTaskMemory(ppxIdleTaskTCBBuffer, ppxIdleTaskStackBuffer, pulIdleTaskStackSize, xCoreID);
+    /* Application callback helper - see freertos_rs_task_get_idle_task_memory. */
 }
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 
@@ -3798,9 +3902,9 @@ void freertos_rs_task_get_passive_idle_task_memory(
  * Returns the run time counter of the idle task
  * @return configRUN_TIME_COUNTER_TYPE - idle task run time counter
  */
-uint32_t freertos_rs_task_get_idle_run_time_counter(void)
+configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_idle_run_time_counter(void)
 {
-    return (uint32_t)ulTaskGetIdleRunTimeCounter();
+    return ulTaskGetIdleRunTimeCounter();
 }
 
 /**
@@ -3808,9 +3912,9 @@ uint32_t freertos_rs_task_get_idle_run_time_counter(void)
  * Returns the percentage of CPU time used by the idle task
  * @return configRUN_TIME_COUNTER_TYPE - idle task run time percentage
  */
-uint32_t freertos_rs_task_get_idle_run_time_percent(void)
+configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_idle_run_time_percent(void)
 {
-    return (uint32_t)ulTaskGetIdleRunTimePercent();
+    return ulTaskGetIdleRunTimePercent();
 }
 #endif /* configGENERATE_RUN_TIME_STATS */
 
@@ -3818,7 +3922,7 @@ uint32_t freertos_rs_task_get_idle_run_time_percent(void)
  * TASK - MPU RESTRICTED AFFINITY SET
  *===========================================================================*/
 
-#if (portUSING_MPU_WRAPPERS == 1)
+#if (portUSING_MPU_WRAPPERS == 1) && (configSUPPORT_DYNAMIC_ALLOCATION == 1) && (configNUMBER_OF_CORES > 1) && (configUSE_CORE_AFFINITY == 1)
 /**
  * @brief Wrapper for xTaskCreateRestrictedAffinitySet()
  * Creates a restricted task with core affinity
@@ -3837,7 +3941,7 @@ BaseType_t freertos_rs_task_create_restricted_affinity_set(
         uxCoreAffinityMask,
         pxCreatedTask);
 }
-#endif /* portUSING_MPU_WRAPPERS */
+#endif /* portUSING_MPU_WRAPPERS && configSUPPORT_DYNAMIC_ALLOCATION && configNUMBER_OF_CORES && configUSE_CORE_AFFINITY */
 
 /*===========================================================================
  * MESSAGE BUFFER - ISR COMPLETED CALLBACKS

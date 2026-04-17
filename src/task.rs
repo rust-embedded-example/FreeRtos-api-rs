@@ -1,8 +1,8 @@
-//! FreeRTOS task management module.
+//! `FreeRTOS` task management module.
 //!
-//! This module provides Rust FFI bindings and safe wrappers for FreeRTOS task
+//! This module provides Rust FFI bindings and safe wrappers for `FreeRTOS` task
 //! management APIs defined in `task.h`. Tasks are the fundamental unit of
-//! execution in FreeRTOS — each task has its own stack, priority, and state.
+//! execution in `FreeRTOS` — each task has its own stack, priority, and state.
 //!
 //! # Core Concepts
 //!
@@ -10,7 +10,7 @@
 //!   the raw FFI functions directly.
 //! - **Scheduler Control**: Start/stop the scheduler, suspend/resume all tasks.
 //! - **Task Notifications**: Lightweight, fast alternative to queues for task
-//!   signaling (available since FreeRTOS 8.2.0).
+//!   signaling (available since `FreeRTOS` 8.2.0).
 //! - **Critical Sections**: Use [`CriticalSection`] for RAII-managed interrupt
 //!   masking.
 //!
@@ -19,7 +19,7 @@
 //! ```rust,no_run
 //! use freertos_api_rs::task::{Task, CriticalSection};
 //!
-//! extern "C" fn blink_task(_param: *mut core::ffi::c_void) {
+//! unsafe extern "C" fn blink_task(_param: *mut core::ffi::c_void) {
 //!     loop {
 //!         // Toggle LED
 //!         unsafe { freertos_api_rs::task::freertos_rs_task_delay(500); }
@@ -31,6 +31,7 @@ use crate::base::{
     FreeRtosBaseType, FreeRtosTickType, FreeRtosTaskHandle, FreeRtosUBaseType,
     FreeRtosTaskFunction, FreeRtosConfigStackDepthType, FreeRtosStackType,
     FreeRtosStaticTask, FreeRtosVoidPtr, FreeRtosTimeOut, FreeRtosConstVoidPtr,
+    FreeRtosNotifyAction, TSK_DEFAULT_INDEX_TO_NOTIFY, FreeRtosTaskParameters,
 };
 
 //===========================================================================
@@ -56,7 +57,7 @@ unsafe extern "C" {
     pub fn freertos_rs_task_create_static(
         task_code: FreeRtosTaskFunction,
         name: *const u8,
-        stack_depth: u32,
+        stack_depth: FreeRtosConfigStackDepthType,
         parameters: FreeRtosVoidPtr,
         priority: FreeRtosUBaseType,
         stack_buffer: FreeRtosStackType,
@@ -139,13 +140,13 @@ unsafe extern "C" {
 //===========================================================================
 
 unsafe extern "C" {
-    /// Starts the FreeRTOS scheduler.
+    /// Starts the `FreeRTOS` scheduler.
     ///
     /// This function does not return unless a task calls `vTaskEndScheduler()`.
     /// At least one task must have been created before calling this.
     pub fn freertos_rs_task_start_scheduler();
 
-    /// Stops the FreeRTOS scheduler.
+    /// Stops the `FreeRTOS` scheduler.
     ///
     /// Only available on x86-like architectures. Most embedded ports do not
     /// implement this.
@@ -394,10 +395,13 @@ unsafe extern "C" {
     /// Gets the high water mark of a task's stack (in words).
     pub fn freertos_rs_task_get_stack_high_water_mark(task: FreeRtosTaskHandle) -> FreeRtosUBaseType;
 
-    /// Gets the high water mark of a task's stack (configSTACK_DEPTH_TYPE).
+    /// Gets the high water mark of a task's stack (`configSTACK_DEPTH_TYPE`).
     pub fn freertos_rs_task_get_stack_high_water_mark2(task: FreeRtosTaskHandle) -> FreeRtosConfigStackDepthType;
 
     /// Gets the static buffers associated with a task.
+    ///
+    /// The C shim layer translates the double-pointer `FreeRTOS` API
+    /// (`StackType_t **`, `StaticTask_t **`) to single pointers.
     pub fn freertos_rs_task_get_static_buffers(
         task: FreeRtosTaskHandle,
         stack_buffer: *mut FreeRtosStackType,
@@ -414,13 +418,13 @@ unsafe extern "C" {
     ///
     /// Wraps `ulTaskGetIdleRunTimeCounter()`. Available when
     /// `configGENERATE_RUN_TIME_STATS` is enabled.
-    pub fn freertos_rs_task_get_idle_run_time_counter() -> u32;
+    pub fn freertos_rs_task_get_idle_run_time_counter() -> crate::base::FreeRtosRunTimeCounterType;
 
     /// Gets the percentage of CPU time used by the idle task.
     ///
     /// Wraps `ulTaskGetIdleRunTimePercent()`. Available when
     /// `configGENERATE_RUN_TIME_STATS` is enabled.
-    pub fn freertos_rs_task_get_idle_run_time_percent() -> u32;
+    pub fn freertos_rs_task_get_idle_run_time_percent() -> crate::base::FreeRtosRunTimeCounterType;
 
     /// Gets the state of a task as a `u32`.
     pub fn freertos_rs_task_get_state(task: FreeRtosTaskHandle) -> u32;
@@ -438,7 +442,7 @@ unsafe extern "C" {
     pub fn freertos_rs_task_get_system_state(
         task_status_array: FreeRtosVoidPtr,
         array_size: FreeRtosUBaseType,
-        total_run_time: *mut u32,
+        total_run_time: *mut crate::base::FreeRtosRunTimeCounterType,
     ) -> FreeRtosUBaseType;
 
     /// Gets information about a specific task.
@@ -579,24 +583,28 @@ unsafe extern "C" {
     /// Checks if the system can enter sleep mode (tickless idle support).
     pub fn freertos_rs_task_confirm_sleep_mode_status() -> FreeRtosBaseType;
 
-    /// Gets the static memory for the idle task (static allocation).
+    /// Helper for implementing `vApplicationGetIdleTaskMemory`.
     ///
-    /// Wraps `vTaskGetIdleTaskMemory()`. Used when `configSUPPORT_STATIC_ALLOCATION == 1`
-    /// to provide the idle task's TCB and stack buffers.
+    /// **Note:** `vApplicationGetIdleTaskMemory` is an application callback
+    /// that `FreeRTOS` calls internally when `configSUPPORT_STATIC_ALLOCATION == 1`.
+    /// The application provides TCB and stack buffers for the idle task.
+    /// This FFI function is a placeholder stub — the actual callback must be
+    /// implemented in C or via a linker symbol.
     pub fn freertos_rs_task_get_idle_task_memory(
         tcb_buffer: *mut FreeRtosStaticTask,
         stack_buffer: *mut FreeRtosStackType,
-        stack_size: *mut u32,
+        stack_size: *mut FreeRtosConfigStackDepthType,
     );
 
-    /// Gets the static memory for the passive idle task (SMP, static allocation).
+    /// Helper for implementing `vApplicationGetPassiveIdleTaskMemory` (SMP).
     ///
-    /// Wraps `vTaskGetPassiveIdleTaskMemory()`. Only available when
+    /// **Note:** Same as `freertos_rs_task_get_idle_task_memory` but for
+    /// passive idle tasks on secondary cores. Only available when
     /// `configNUMBER_OF_CORES > 1` and `configSUPPORT_STATIC_ALLOCATION == 1`.
     pub fn freertos_rs_task_get_passive_idle_task_memory(
         tcb_buffer: *mut FreeRtosStaticTask,
         stack_buffer: *mut FreeRtosStackType,
-        stack_size: *mut u32,
+        stack_size: *mut FreeRtosConfigStackDepthType,
         core_id: FreeRtosBaseType,
     );
 }
@@ -608,7 +616,7 @@ unsafe extern "C" {
 // SAFE WRAPPER - CRITICAL SECTION RAII GUARD
 //===========================================================================
 
-/// RAII guard for a FreeRTOS critical section.
+/// RAII guard for a `FreeRTOS` critical section.
 ///
 /// Disables interrupts on creation and re-enables them on drop. Use this
 /// instead of manually calling `taskENTER_CRITICAL` / `taskEXIT_CRITICAL`.
@@ -720,9 +728,9 @@ unsafe impl Send for PreemptionGuard {}
 // SAFE WRAPPER - TASK
 //===========================================================================
 
-/// A spawned FreeRTOS task with RAII-managed lifetime.
+/// A spawned `FreeRTOS` task with RAII-managed lifetime.
 ///
-/// Wraps a FreeRTOS task handle. When dropped, the task is deleted via
+/// Wraps a `FreeRTOS` task handle. When dropped, the task is deleted via
 /// `vTaskDelete`. The handle may be null if the task was not created
 /// successfully.
 ///
@@ -732,9 +740,9 @@ unsafe impl Send for PreemptionGuard {}
 /// use freertos_api_rs::task::Task;
 /// use freertos_api_rs::base::TSK_IDLE_PRIORITY;
 ///
-/// extern "C" fn my_task(_param: *mut core::ffi::c_void) {
+/// unsafe extern "C" fn my_task(_param: *mut core::ffi::c_void) {
 ///     loop {
-///         unsafe { freertos_api_rs::task::freertos_rs_task_delay(100); }
+///         freertos_api_rs::task::delay(100);
 ///     }
 /// }
 ///
@@ -756,7 +764,7 @@ pub struct Task {
 }
 
 impl Task {
-    /// Spawns a new FreeRTOS task with dynamic memory allocation.
+    /// Spawns a new `FreeRTOS` task with dynamic memory allocation.
     ///
     /// # Safety
     /// `name` must be a valid null-terminated C string. `param` must be valid
@@ -770,12 +778,41 @@ impl Task {
     ) -> Result<Self, crate::base::FreeRtosError> {
         let mut handle: FreeRtosTaskHandle = core::ptr::null();
         let result = unsafe {
-            freertos_rs_task_create(entry, name, stack_depth, param, priority, &mut handle)
+            freertos_rs_task_create(entry, name, stack_depth, param, priority, core::ptr::from_mut(&mut handle))
         };
         if result == crate::base::PD_PASS && !handle.is_null() {
             Ok(Self { handle, owns_task: true })
         } else {
             Err(crate::base::FreeRtosError::OutOfMemory)
+        }
+    }
+
+    /// Spawns a new `FreeRTOS` task with static memory allocation.
+    ///
+    /// The task's stack and TCB are placed in user-provided buffers that must
+    /// remain valid for the lifetime of the task.
+    ///
+    /// # Safety
+    /// `name` must be a valid null-terminated C string. `param` must be valid
+    /// for the lifetime of the task or null. `stack_buffer` must be properly
+    /// aligned for `StackType_t` and `task_buffer` for `StaticTask_t`. Both
+    /// must remain valid for the task's lifetime.
+    pub unsafe fn spawn_static(
+        name: *const u8,
+        stack_depth: FreeRtosConfigStackDepthType,
+        entry: FreeRtosTaskFunction,
+        param: FreeRtosVoidPtr,
+        priority: FreeRtosUBaseType,
+        stack_buffer: FreeRtosStackType,
+        task_buffer: FreeRtosStaticTask,
+    ) -> Result<Self, crate::base::FreeRtosError> {
+        let handle = unsafe {
+            freertos_rs_task_create_static(entry, name, stack_depth, param, priority, stack_buffer, task_buffer)
+        };
+        if handle.is_null() {
+            Err(crate::base::FreeRtosError::OutOfMemory)
+        } else {
+            Ok(Self { handle, owns_task: true })
         }
     }
 
@@ -789,7 +826,12 @@ impl Task {
     /// Creates a `Task` from an existing handle, taking ownership.
     ///
     /// The task WILL be deleted when this `Task` is dropped.
-    pub fn from_handle_owned(handle: FreeRtosTaskHandle) -> Self {
+    ///
+    /// # Safety
+    /// `handle` must not be null. Passing null will cause `vTaskDelete(NULL)`
+    /// on drop, which deletes the **calling task** — almost certainly unintended.
+    /// `handle` must be a valid task handle obtained from a FreeRTOS API.
+    pub unsafe fn from_handle_owned(handle: FreeRtosTaskHandle) -> Self {
         Self { handle, owns_task: true }
     }
 
@@ -843,7 +885,7 @@ impl Task {
             2 => crate::base::FreeRtosTaskState::Blocked,
             3 => crate::base::FreeRtosTaskState::Suspended,
             4 => crate::base::FreeRtosTaskState::Deleted,
-            _ => crate::base::FreeRtosTaskState::Suspended,
+            _ => crate::base::FreeRtosTaskState::Invalid,
         }
     }
 
@@ -943,6 +985,109 @@ impl Task {
         }
     }
 
+    /// Sends an indexed notification to this task from an ISR.
+    ///
+    /// Returns `true` if the notification was successfully sent.
+    ///
+    /// # Safety
+    /// `previous_value` must be a valid pointer or null.
+    /// `higher_priority_task_woken` must be a valid mutable pointer.
+    pub unsafe fn notify_indexed_from_isr(
+        &self,
+        index: FreeRtosUBaseType,
+        value: u32,
+        action: crate::base::FreeRtosNotifyAction,
+        previous_value: *mut u32,
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) -> bool {
+        unsafe {
+            freertos_rs_task_generic_notify_from_isr(
+                self.handle, index, value, action as u32, previous_value, higher_priority_task_woken,
+            ) != 0
+        }
+    }
+
+    /// Gives an indexed notification (increment) from an ISR.
+    pub fn notify_give_indexed_from_isr(
+        &self,
+        index: FreeRtosUBaseType,
+        higher_priority_task_woken: &mut FreeRtosBaseType,
+    ) {
+        unsafe {
+            freertos_rs_task_generic_notify_give_from_isr(
+                self.handle, index, higher_priority_task_woken,
+            );
+        }
+    }
+
+    /// Waits for an indexed notification.
+    ///
+    /// Returns `Some(notification_value)` on success, `None` on timeout.
+    pub fn notify_wait_indexed(
+        index: FreeRtosUBaseType,
+        bits_to_clear_on_entry: u32,
+        bits_to_clear_on_exit: u32,
+        ticks_to_wait: FreeRtosTickType,
+    ) -> Option<u32> {
+        let mut value: u32 = 0;
+        let result = unsafe {
+            freertos_rs_task_generic_notify_wait(
+                index, bits_to_clear_on_entry, bits_to_clear_on_exit, core::ptr::from_mut(&mut value), ticks_to_wait,
+            )
+        };
+        if result == crate::base::PD_TRUE {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    /// Takes an indexed notification (decrement or clear).
+    pub fn notify_take_indexed(
+        index: FreeRtosUBaseType,
+        clear_on_exit: bool,
+        ticks_to_wait: FreeRtosTickType,
+    ) -> u32 {
+        unsafe {
+            freertos_rs_task_generic_notify_take(index, i32::from(clear_on_exit), ticks_to_wait)
+        }
+    }
+
+    /// Clears the notification pending state for an index.
+    ///
+    /// Returns the previous pending state (pdTRUE if was pending).
+    pub fn notify_state_clear_indexed(&self, index: FreeRtosUBaseType) -> bool {
+        unsafe { freertos_rs_task_generic_notify_state_clear(self.handle, index) != 0 }
+    }
+
+    /// Clears specific bits in an indexed notification value.
+    ///
+    /// Returns the previous notification value (before clearing).
+    pub fn notify_value_clear_indexed(&self, index: FreeRtosUBaseType, bits_to_clear: u32) -> u32 {
+        unsafe { freertos_rs_task_generic_notify_value_clear(self.handle, index, bits_to_clear) }
+    }
+
+    /// Gets task information into the provided status structure.
+    ///
+    /// # Safety
+    /// `task_status` must point to a valid, properly aligned
+    /// [`crate::base::FreeRtosTaskStatusFfi`] structure.
+    pub unsafe fn get_info(
+        &self,
+        task_status: *mut crate::base::FreeRtosTaskStatusFfi,
+        get_free_stack_space: bool,
+        state: crate::base::FreeRtosTaskState,
+    ) {
+        unsafe {
+            freertos_rs_task_get_info(
+                self.handle,
+                task_status as FreeRtosVoidPtr,
+                if get_free_stack_space { crate::base::PD_TRUE } else { crate::base::PD_FALSE },
+                state as u32,
+            );
+        }
+    }
+
     /// Gets the task number (trace facility).
     pub fn task_number(&self) -> FreeRtosUBaseType {
         unsafe { freertos_rs_task_get_task_number(self.handle) }
@@ -1012,12 +1157,12 @@ pub fn get_number_of_tasks() -> FreeRtosUBaseType {
     unsafe { freertos_rs_task_get_number_of_tasks() }
 }
 
-/// Starts the FreeRTOS scheduler.
+/// Starts the `FreeRTOS` scheduler.
 pub fn start_scheduler() {
     unsafe { freertos_rs_task_start_scheduler() }
 }
 
-/// Ends the FreeRTOS scheduler.
+/// Ends the `FreeRTOS` scheduler.
 pub fn end_scheduler() {
     unsafe { freertos_rs_task_end_scheduler() }
 }
@@ -1045,7 +1190,7 @@ pub fn notify_wait(
         freertos_rs_task_notify_wait(
             bits_to_clear_on_entry,
             bits_to_clear_on_exit,
-            &mut value,
+            core::ptr::from_mut(&mut value),
             ticks_to_wait,
         )
     };
@@ -1056,9 +1201,43 @@ pub fn notify_wait(
     }
 }
 
+/// Notifies a task from an ISR with a value and action.
+///
+/// Returns `true` if a higher-priority task was woken.
+///
+/// # Safety
+/// `task` must be a valid, non-null task handle.
+pub unsafe fn notify_from_isr(
+    task: FreeRtosTaskHandle,
+    value: u32,
+    action: FreeRtosNotifyAction,
+    higher_priority_task_woken: &mut FreeRtosBaseType,
+) -> bool {
+    unsafe {
+        freertos_rs_task_notify_from_isr(task, value, action as u32, higher_priority_task_woken) != 0
+    }
+}
+
+/// Gives a notification to a task from an ISR (increments the notification value).
+///
+/// # Safety
+/// `task` must be a valid, non-null task handle.
+pub unsafe fn notify_give_from_isr(
+    task: FreeRtosTaskHandle,
+    higher_priority_task_woken: &mut FreeRtosBaseType,
+) {
+    unsafe {
+        freertos_rs_task_generic_notify_give_from_isr(
+            task,
+            TSK_DEFAULT_INDEX_TO_NOTIFY,
+            higher_priority_task_woken,
+        );
+    }
+}
+
 /// Takes a notification (ISR-safe).
 pub fn notify_take(clear_on_exit: bool, ticks_to_wait: FreeRtosTickType) -> u32 {
-    unsafe { freertos_rs_task_notify_take(if clear_on_exit { 1 } else { 0 }, ticks_to_wait) }
+    unsafe { freertos_rs_task_notify_take(i32::from(clear_on_exit), ticks_to_wait) }
 }
 
 /// Delays the current task until an absolute wake time (for periodic tasks).
@@ -1093,6 +1272,412 @@ pub fn get_current_stack_high_water_mark() -> FreeRtosUBaseType {
     unsafe { freertos_rs_task_get_stack_high_water_mark(core::ptr::null()) }
 }
 
+/// Gets the system state for all tasks.
+///
+/// Fills the provided array with `FreeRtosTaskStatusFfi` entries.
+/// Returns the number of tasks populated.
+///
+/// # Safety
+/// `task_status_array` must point to an array of `FreeRtosTaskStatusFfi`
+/// with at least `array_size` entries. `total_run_time` must be a valid
+/// mutable pointer (or null if run-time stats are not needed).
+pub unsafe fn get_system_state(
+    task_status_array: *mut crate::base::FreeRtosTaskStatusFfi,
+    array_size: FreeRtosUBaseType,
+    total_run_time: *mut crate::base::FreeRtosRunTimeCounterType,
+) -> FreeRtosUBaseType {
+    unsafe {
+        freertos_rs_task_get_system_state(
+            task_status_array as FreeRtosVoidPtr,
+            array_size,
+            total_run_time,
+        )
+    }
+}
+
+/// Gets the run time counter for a specific task.
+///
+/// # Safety
+/// `task` must be a valid, non-null task handle.
+pub unsafe fn get_run_time_counter(task: FreeRtosTaskHandle) -> u32 {
+    unsafe { freertos_rs_task_get_run_time_counter(task) }
+}
+
+/// Gets the run time percentage for a specific task.
+///
+/// # Safety
+/// `task` must be a valid, non-null task handle.
+pub unsafe fn get_run_time_percent(task: FreeRtosTaskHandle) -> u32 {
+    unsafe { freertos_rs_task_get_run_time_percent(task) }
+}
+
+/// Gets the idle task run time counter.
+pub fn get_idle_run_time_counter() -> crate::base::FreeRtosRunTimeCounterType {
+    unsafe { freertos_rs_task_get_idle_run_time_counter() }
+}
+
+/// Gets the idle task run time percentage.
+pub fn get_idle_run_time_percent() -> crate::base::FreeRtosRunTimeCounterType {
+    unsafe { freertos_rs_task_get_idle_run_time_percent() }
+}
+
+/// RAII helper for bounded wait loops without overflow risk.
+///
+/// Combines `vTaskSetTimeOutState()` and `xTaskCheckForTimeOut()` to safely
+/// implement poll-with-timeout patterns.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use freertos_api_rs::task::TimeoutState;
+/// use freertos_api_rs::base::PORT_MAX_DELAY;
+///
+/// let mut remaining = 1000u32; // ticks
+/// let mut timeout = TimeoutState::new();
+/// loop {
+///     // Try operation...
+///     if timeout.check(&mut remaining) {
+///         break; // Timed out
+///     }
+/// }
+/// ```
+pub struct TimeoutState {
+    inner: FreeRtosTimeOut,
+}
+
+impl TimeoutState {
+    /// Creates a new timeout state, capturing the current tick count.
+    pub fn new() -> Self {
+        let mut state = Self {
+            inner: FreeRtosTimeOut {
+                overflow_count: 0,
+                time_on_entering: 0,
+            },
+        };
+        unsafe { freertos_rs_task_set_time_out_state(core::ptr::from_mut(&mut state.inner)) };
+        state
+    }
+
+    /// Checks if the timeout has expired.
+    ///
+    /// Updates `ticks_to_wait` with the remaining time. Returns `true`
+    /// if the timeout has expired and the caller should stop waiting.
+    pub fn check(&mut self, ticks_to_wait: &mut FreeRtosTickType) -> bool {
+        unsafe { freertos_rs_task_check_for_time_out(core::ptr::from_mut(&mut self.inner), core::ptr::from_mut(ticks_to_wait)) != 0 }
+    }
+}
+
+impl Default for TimeoutState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Catches up tick count after exiting a low-power mode.
+///
+/// Returns `true` if a context switch is needed.
+pub fn catch_up_ticks(ticks_to_catch_up: FreeRtosTickType) -> bool {
+    unsafe { freertos_rs_task_catch_up_ticks(ticks_to_catch_up) != 0 }
+}
+
+//===========================================================================
+// ADDITIONAL SAFE WRAPPERS - INTERRUPT, SLEEP, TAG, HOOK, TICK
+//===========================================================================
+
+/// Disables interrupts.
+///
+/// # Safety
+/// Must be paired with a corresponding `enable_interrupts()` call.
+/// Avoid calling from ISR contexts.
+pub unsafe fn disable_interrupts() {
+    unsafe { freertos_rs_task_disable_interrupts() };
+}
+
+/// Enables interrupts.
+///
+/// # Safety
+/// Must be paired with a prior `disable_interrupts()` call.
+pub unsafe fn enable_interrupts() {
+    unsafe { freertos_rs_task_enable_interrupts() };
+}
+
+/// Confirms if the sleep mode status allows entering sleep.
+///
+/// Returns the sleep mode status value. Used by tickless idle implementations.
+pub fn confirm_sleep_mode_status() -> FreeRtosBaseType {
+    unsafe { freertos_rs_task_confirm_sleep_mode_status() }
+}
+
+/// Sets an application tag (user data pointer) for a task.
+///
+/// # Safety
+/// `task` must be a valid task handle. `tag` must be a valid pointer or null.
+pub unsafe fn set_application_task_tag(task: FreeRtosTaskHandle, tag: FreeRtosVoidPtr) {
+    unsafe { freertos_rs_task_set_application_task_tag(task, tag) };
+}
+
+/// Gets the application tag for a task.
+///
+/// # Safety
+/// `task` must be a valid task handle.
+pub unsafe fn get_application_task_tag(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr {
+    unsafe { freertos_rs_task_get_application_task_tag(task) }
+}
+
+/// Gets the application tag for a task from an ISR.
+///
+/// # Safety
+/// `task` must be a valid task handle.
+pub unsafe fn get_application_task_tag_from_isr(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr {
+    unsafe { freertos_rs_task_get_application_task_tag_from_isr(task) }
+}
+
+/// Calls a task's application hook function.
+///
+/// # Safety
+/// `task` must be a valid task handle with a hook set.
+/// `parameter` must be valid for the hook function.
+pub unsafe fn call_application_task_hook(task: FreeRtosTaskHandle, parameter: FreeRtosVoidPtr) -> FreeRtosBaseType {
+    unsafe { freertos_rs_task_call_application_task_hook(task, parameter) }
+}
+
+/// Steps the tick count forward (for tickless idle).
+///
+/// # Safety
+/// Must only be called from the tickless idle hook.
+pub unsafe fn step_tick(ticks_to_jump: FreeRtosTickType) {
+    unsafe { freertos_rs_task_step_tick(ticks_to_jump) };
+}
+
+/// Increments the tick count (internal kernel function).
+///
+/// # Safety
+/// Must only be called from the timer ISR.
+pub unsafe fn increment_tick() -> FreeRtosBaseType {
+    unsafe { freertos_rs_task_increment_tick() }
+}
+
+/// Resets task state (internal kernel function).
+///
+/// # Safety
+/// For kernel internal use only.
+pub unsafe fn reset_state() {
+    unsafe { freertos_rs_task_reset_state() };
+}
+
+/// Formats task runtime statistics into a string buffer.
+///
+/// # Safety
+/// `buffer` must point to a valid buffer.
+pub unsafe fn get_run_time_stats(buffer: *mut u8) {
+    unsafe { freertos_rs_task_get_run_time_stats(buffer) };
+}
+
+/// Formats a list of all tasks into a string buffer.
+///
+/// # Safety
+/// `buffer` must point to a valid buffer of at least `buffer_size` bytes.
+pub unsafe fn list_tasks(buffer: *mut u8, buffer_size: usize) {
+    unsafe { freertos_rs_task_list_tasks(buffer, buffer_size) };
+}
+
+//===========================================================================
+// ADDITIONAL SAFE WRAPPERS - SMP, MPU, STATISTICS
+//===========================================================================
+
+/// Gets the current task handle for a specific core (SMP).
+///
+/// # Safety
+/// `core_id` must be a valid core index (< `configNUMBER_OF_CORES`).
+pub unsafe fn get_current_task_handle_for_core(core_id: FreeRtosBaseType) -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_task_get_current_task_handle_for_core(core_id) }
+}
+
+/// Gets the idle task handle for a specific core (SMP).
+///
+/// # Safety
+/// `core_id` must be a valid core index (< `configNUMBER_OF_CORES`).
+pub unsafe fn get_idle_task_handle_for_core(core_id: FreeRtosBaseType) -> FreeRtosTaskHandle {
+    unsafe { freertos_rs_task_get_idle_task_handle_for_core(core_id) }
+}
+
+/// Spawns a task with core affinity (SMP).
+///
+/// # Safety
+/// `name` must be a valid null-terminated C string. `param` must be valid
+/// for the lifetime of the task or null. `affinity` is a bitmask of cores.
+pub unsafe fn spawn_affinity(
+    name: *const u8,
+    stack_depth: FreeRtosConfigStackDepthType,
+    entry: FreeRtosTaskFunction,
+    param: FreeRtosVoidPtr,
+    priority: FreeRtosUBaseType,
+    affinity: FreeRtosUBaseType,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let mut handle: FreeRtosTaskHandle = core::ptr::null();
+    let result = unsafe {
+        freertos_rs_task_create_affinity_set(entry, name, stack_depth, param, priority, affinity, core::ptr::from_mut(&mut handle))
+    };
+    if result == crate::base::PD_PASS && !handle.is_null() {
+        Ok(Task { handle, owns_task: true })
+    } else {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    }
+}
+
+/// Spawns a static task with core affinity (SMP).
+///
+/// # Safety
+/// Same as `Task::spawn_static` plus `affinity` must be a valid core bitmask.
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn spawn_static_affinity(
+    name: *const u8,
+    stack_depth: FreeRtosConfigStackDepthType,
+    entry: FreeRtosTaskFunction,
+    param: FreeRtosVoidPtr,
+    priority: FreeRtosUBaseType,
+    stack_buffer: FreeRtosStackType,
+    task_buffer: FreeRtosStaticTask,
+    affinity: FreeRtosUBaseType,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let handle = unsafe {
+        freertos_rs_task_create_static_affinity_set(
+            entry, name, stack_depth, param, priority,
+            stack_buffer, task_buffer, affinity,
+        )
+    };
+    if handle.is_null() {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    } else {
+        Ok(Task { handle, owns_task: true })
+    }
+}
+
+/// Allocates MPU regions for a task.
+///
+/// # Safety
+/// `task` must be a valid task handle. `regions` must point to a valid
+/// array of `MemoryRegion_t` structures.
+pub unsafe fn allocate_mpu_regions(task: FreeRtosTaskHandle, regions: FreeRtosVoidPtr) {
+    unsafe { freertos_rs_task_allocate_mpu_regions(task, regions) };
+}
+
+/// Creates an MPU-restricted task.
+///
+/// Wraps `xTaskCreateRestricted()`. Only available when
+/// `portUSING_MPU_WRAPPERS == 1` and `configSUPPORT_DYNAMIC_ALLOCATION == 1`.
+///
+/// # Safety
+/// `task_params` must point to a valid `FreeRtosTaskParameters` structure with
+/// properly configured MPU regions. The stack buffer pointer within must be
+/// valid or null.
+pub unsafe fn create_restricted(
+    task_params: *const FreeRtosTaskParameters,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let mut handle: FreeRtosTaskHandle = core::ptr::null();
+    let result = unsafe {
+        freertos_rs_task_create_restricted(
+            task_params.cast(),
+            core::ptr::from_mut(&mut handle),
+        )
+    };
+    if result == crate::base::PD_PASS && !handle.is_null() {
+        Ok(Task { handle, owns_task: true })
+    } else {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    }
+}
+
+/// Creates an MPU-restricted task with static allocation.
+///
+/// Wraps `xTaskCreateRestrictedStatic()`. Only available when
+/// `portUSING_MPU_WRAPPERS == 1` and `configSUPPORT_STATIC_ALLOCATION == 1`.
+///
+/// # Safety
+/// `task_params` must point to a valid `FreeRtosTaskParameters` with a valid
+/// `task_buffer` pointing to a `StaticTask_t`. The stack buffer and MPU regions
+/// must be properly configured.
+pub unsafe fn create_restricted_static(
+    task_params: *const FreeRtosTaskParameters,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let mut handle: FreeRtosTaskHandle = core::ptr::null();
+    let result = unsafe {
+        freertos_rs_task_create_restricted_static(
+            task_params.cast(),
+            core::ptr::from_mut(&mut handle),
+        )
+    };
+    if result == crate::base::PD_PASS && !handle.is_null() {
+        Ok(Task { handle, owns_task: false })
+    } else {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    }
+}
+
+/// Creates an MPU-restricted task with core affinity (SMP + dynamic allocation).
+///
+/// Wraps `xTaskCreateRestrictedAffinitySet()`. Only available when
+/// `portUSING_MPU_WRAPPERS == 1`, `configNUMBER_OF_CORES > 1`,
+/// and `configUSE_CORE_AFFINITY == 1`.
+///
+/// # Safety
+/// `task_params` must point to a valid `FreeRtosTaskParameters` structure.
+/// `core_affinity_mask` must be a valid core bitmask.
+pub unsafe fn create_restricted_affinity(
+    task_params: *const FreeRtosTaskParameters,
+    core_affinity_mask: FreeRtosUBaseType,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let mut handle: FreeRtosTaskHandle = core::ptr::null();
+    let result = unsafe {
+        freertos_rs_task_create_restricted_affinity_set(
+            task_params.cast(),
+            core_affinity_mask,
+            core::ptr::from_mut(&mut handle),
+        )
+    };
+    if result == crate::base::PD_PASS && !handle.is_null() {
+        Ok(Task { handle, owns_task: true })
+    } else {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    }
+}
+
+/// Creates an MPU-restricted task with static allocation and core affinity.
+///
+/// Wraps `xTaskCreateRestrictedStaticAffinitySet()`. Only available when
+/// `portUSING_MPU_WRAPPERS == 1`, `configSUPPORT_STATIC_ALLOCATION == 1`,
+/// `configNUMBER_OF_CORES > 1`, and `configUSE_CORE_AFFINITY == 1`.
+///
+/// # Safety
+/// `task_params` must point to a valid `FreeRtosTaskParameters` with a valid
+/// `task_buffer`. `core_affinity_mask` must be a valid core bitmask.
+pub unsafe fn create_restricted_static_affinity(
+    task_params: *const FreeRtosTaskParameters,
+    core_affinity_mask: FreeRtosUBaseType,
+) -> Result<Task, crate::base::FreeRtosError> {
+    let mut handle: FreeRtosTaskHandle = core::ptr::null();
+    let result = unsafe {
+        freertos_rs_task_create_restricted_static_affinity_set(
+            task_params.cast(),
+            core_affinity_mask,
+            core::ptr::from_mut(&mut handle),
+        )
+    };
+    if result == crate::base::PD_PASS && !handle.is_null() {
+        Ok(Task { handle, owns_task: false })
+    } else {
+        Err(crate::base::FreeRtosError::OutOfMemory)
+    }
+}
+
+/// Gets detailed task runtime statistics.
+///
+/// # Safety
+/// `buffer` must point to a valid buffer of at least `buffer_length` bytes.
+pub unsafe fn get_run_time_statistics(buffer: *mut u8, buffer_length: usize) {
+    unsafe { freertos_rs_task_get_run_time_statistics(buffer, buffer_length) };
+}
+
 //===========================================================================
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
@@ -1106,14 +1691,29 @@ const _: () = {
     assert_send::<Task>();
 };
 
+// Task struct has correct layout: handle + owns_task bool
+const _: () = assert!(core::mem::size_of::<Task>() >= core::mem::size_of::<FreeRtosTaskHandle>());
+
+// CriticalSection is zero-sized (just a phantom marker)
+const _: () = assert!(core::mem::size_of::<CriticalSection>() == 0);
+
+// CriticalSectionFromIsr stores one UBaseType_t
+const _: () = assert!(core::mem::size_of::<CriticalSectionFromIsr>() == core::mem::size_of::<FreeRtosUBaseType>());
+
+// PreemptionGuard stores one TaskHandle
+const _: () = assert!(core::mem::size_of::<PreemptionGuard>() == core::mem::size_of::<FreeRtosTaskHandle>());
+
 // Constants
 const _: () = assert!(crate::base::PD_PASS == 1);
 const _: () = assert!(crate::base::PD_TRUE == 1);
 const _: () = assert!(crate::base::PD_FALSE == 0);
-const _: () = assert!(crate::base::PORT_MAX_DELAY == 0xFFFFFFFF);
+const _: () = assert!(crate::base::PORT_MAX_DELAY == 0xFFFF_FFFF);
 
 // FreeRtosTaskFunction signature check
 const _: () = assert!(core::mem::size_of::<FreeRtosTaskFunction>() > 0);
 
 // FreeRtosTimeOut layout matches C TimeOut_t
 const _: () = assert!(core::mem::size_of::<FreeRtosTimeOut>() == core::mem::size_of::<FreeRtosBaseType>() + core::mem::size_of::<FreeRtosTickType>());
+
+// TimeoutState wraps FreeRtosTimeOut directly
+const _: () = assert!(core::mem::size_of::<TimeoutState>() == core::mem::size_of::<FreeRtosTimeOut>());
