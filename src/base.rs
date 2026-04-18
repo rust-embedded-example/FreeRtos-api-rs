@@ -350,6 +350,7 @@ pub struct FreeRtosTaskParameters {
 /// | `SetValueWithOverwrite`    | `eSetValueWithOverwrite`         |
 /// | `SetValueWithoutOverwrite` | `eSetValueWithoutOverwrite`      |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 #[repr(i32)]
 pub enum FreeRtosNotifyAction {
     /// No action — just notify without modifying the value.
@@ -368,6 +369,7 @@ pub enum FreeRtosNotifyAction {
 ///
 /// Determines where in the queue a new item is placed.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 #[repr(i32)]
 pub enum FreeRtosQueueSendPosition {
     /// Send to the back of the queue (FIFO order).
@@ -398,6 +400,7 @@ pub enum FreeRtosQueueSendPosition {
 /// | `StopFromISR`                | `tmrCOMMAND_STOP_FROM_ISR`              | 8     |
 /// | `ChangePeriodFromISR`        | `tmrCOMMAND_CHANGE_PERIOD_FROM_ISR`     | 9     |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 #[repr(i32)]
 pub enum FreeRtosTimerCommand {
     /// Execute a callback from an ISR context (`tmrCOMMAND_EXECUTE_CALLBACK_FROM_ISR`).
@@ -442,6 +445,7 @@ pub enum FreeRtosTimerCommand {
 /// | `Deleted`   | `eDeleted`        | 4     |
 /// | `Invalid`   | `eInvalid`        | 5     |
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 #[repr(u32)]
 pub enum FreeRtosTaskState {
     /// The task is currently running (only valid for the calling task).
@@ -467,6 +471,7 @@ pub enum FreeRtosTaskState {
 /// Returned by safe wrapper functions when a `FreeRTOS` API call fails.
 /// This is a Rust-side error type — it is not passed across the FFI boundary.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum FreeRtosError {
     /// Memory allocation failed (heap exhausted).
     OutOfMemory,
