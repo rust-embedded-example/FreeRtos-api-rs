@@ -138,9 +138,16 @@ pub type FreeRtosPendedFunction = unsafe extern "C" fn(
 );
 
 /// `FreeRTOS` stream buffer send/receive completion callback signature.
+///
+/// Matches `StreamBufferCallbackFunction_t` from `stream_buffer.h`:
+/// - `stream_buffer` — The handle of the stream buffer that triggered the callback.
+/// - `is_inside_isr` — `pdTRUE` if called from ISR context, `pdFALSE` otherwise.
+/// - `higher_priority_task_woken` — Output parameter; set to `pdTRUE` if a context
+///   switch is needed (ISR context only).
 pub type FreeRtosStreamBufferCallbackFunction = unsafe extern "C" fn(
     stream_buffer: FreeRtosStreamBufferHandle,
-    pxHigherPriorityTaskWoken: *mut FreeRtosBaseType,
+    is_inside_isr: FreeRtosBaseType,
+    higher_priority_task_woken: *mut FreeRtosBaseType,
 );
 
 //===========================================================================
