@@ -821,6 +821,12 @@ impl Task {
     /// Creates a `Task` from an existing handle without taking ownership.
     ///
     /// The task will NOT be deleted when this `Task` is dropped.
+    ///
+    /// # Note
+    ///
+    /// Passing a null handle is allowed, but calling methods on the resulting
+    /// `Task` will operate on the **currently executing task** (`FreeRTOS`
+    /// interprets `NULL` as "the calling task"), which may be unexpected.
     pub const fn from_handle(handle: FreeRtosTaskHandle) -> Self {
         Self { handle, owns_task: false }
     }

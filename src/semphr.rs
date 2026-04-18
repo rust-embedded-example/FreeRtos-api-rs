@@ -584,6 +584,8 @@ impl Drop for RecursiveMutex {
         for _ in 0..count {
             self.unlock();
         }
+        // Reset count to 0 regardless of unlock success to avoid stale state.
+        self.lock_count.store(0, Ordering::Release);
         if !self.handle.is_null() {
             unsafe { freertos_rs_semaphore_delete(self.handle as FreeRtosSemaphoreHandle) };
         }

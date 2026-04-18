@@ -130,15 +130,15 @@ impl FreeRtosAtomicU32 {
 
     /// Returns the current value atomically.
     ///
-    /// Uses a volatile read preceded by a compiler fence (`Acquire` ordering).
+    /// Uses a full memory fence (`Acquire` ordering) followed by a volatile read.
     /// On ARM Cortex-M7 (single-core), aligned 32-bit reads are naturally atomic.
-    /// The compiler fence prevents the compiler from reordering subsequent
-    /// memory operations before this load.
+    /// The fence prevents reordering of subsequent memory operations before this load,
+    /// and on multi-core SMP systems ensures visibility of writes from other cores.
     ///
     /// This matches `FreeRTOS`'s own `Atomic_Load_u32` which uses a volatile
     /// dereference.
     pub fn load(&self) -> u32 {
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Acquire);
         unsafe { core::ptr::read_volatile(self.ptr) }
     }
 
@@ -202,16 +202,16 @@ impl FreeRtosAtomicU32 {
     ///
     /// Uses a CAS loop: reads the current value, then attempts CAS.
     /// `FreeRTOS` CAS returns success/failure, so we read the current value
-    /// with a volatile read (guarded by a compiler fence) and retry until CAS succeeds.
+    /// with a volatile read (guarded by a full memory fence) and retry until CAS succeeds.
     pub fn swap(&self, new: u32) -> u32 {
-        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Acquire);
         let mut current = unsafe { core::ptr::read_volatile(self.ptr) };
         loop {
             if unsafe { freertos_rs_atomic_compare_and_swap_u32(self.ptr, new, current) != 0 } {
                 return current;
             }
             // CAS failed — another writer changed the value. Re-read and retry.
-            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Acquire);
+            core::sync::atomic::fence(core::sync::atomic::Ordering::Acquire);
             current = unsafe { core::ptr::read_volatile(self.ptr) };
         }
     }

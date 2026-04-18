@@ -458,8 +458,8 @@ pub enum FreeRtosTaskState {
 /// Error type for `FreeRTOS` API operations.
 ///
 /// Returned by safe wrapper functions when a `FreeRTOS` API call fails.
+/// This is a Rust-side error type — it is not passed across the FFI boundary.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(C)]
 pub enum FreeRtosError {
     /// Memory allocation failed (heap exhausted).
     OutOfMemory,
