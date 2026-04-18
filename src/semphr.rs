@@ -501,15 +501,15 @@ unsafe impl Sync for Mutex {}
 ///
 /// # Drop Behavior
 ///
-/// When dropped, this type attempts to release the recursive mutex before
-/// deleting the underlying semaphore. However, only the task that holds the
-/// mutex can successfully release it. If a different task drops a held
-/// `RecursiveMutex`, the release attempt will fail silently (FreeRTOS returns
-/// an error for `xSemaphoreGiveRecursive` called by a non-owner) but the
-/// semaphore will still be deleted.
+/// When dropped, this type attempts to release the recursive mutex as many
+/// times as the recorded lock count before deleting the underlying semaphore.
+/// However, only the task that holds the mutex can successfully release it.
+/// If a different task drops a held `RecursiveMutex`, the release attempts
+/// will fail silently (`FreeRTOS` returns an error for `xSemaphoreGiveRecursive`
+/// called by a non-owner) but the semaphore will still be deleted.
 pub struct RecursiveMutex {
     handle: FreeRtosMutexHandle,
-    owned: AtomicBool,
+    lock_count: core::sync::atomic::AtomicUsize,
 }
 
 impl RecursiveMutex {
@@ -519,7 +519,7 @@ impl RecursiveMutex {
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
-            Ok(Self { handle, owned: AtomicBool::new(false) })
+            Ok(Self { handle, lock_count: core::sync::atomic::AtomicUsize::new(0) })
         }
     }
 
@@ -534,7 +534,7 @@ impl RecursiveMutex {
         if handle.is_null() {
             Err(FreeRtosError::OutOfMemory)
         } else {
-            Ok(Self { handle, owned: AtomicBool::new(false) })
+            Ok(Self { handle, lock_count: core::sync::atomic::AtomicUsize::new(0) })
         }
     }
 
@@ -544,7 +544,7 @@ impl RecursiveMutex {
             freertos_rs_semaphore_take_recursive(self.handle, ticks_to_wait) == PD_PASS
         };
         if result {
-            self.owned.store(true, Ordering::Release);
+            self.lock_count.fetch_add(1, Ordering::Release);
         }
         result
     }
@@ -553,9 +553,14 @@ impl RecursiveMutex {
     pub fn unlock(&self) -> bool {
         let result = unsafe { freertos_rs_semaphore_give_recursive(self.handle) == PD_PASS };
         if result {
-            self.owned.store(false, Ordering::Release);
+            self.lock_count.fetch_sub(1, Ordering::Release);
         }
         result
+    }
+
+    /// Returns the current lock count (number of outstanding `lock` calls).
+    pub fn lock_count(&self) -> usize {
+        self.lock_count.load(Ordering::Acquire)
     }
 
     /// Gets the static buffer backing this recursive mutex.
@@ -571,11 +576,12 @@ impl RecursiveMutex {
 
 impl Drop for RecursiveMutex {
     fn drop(&mut self) {
-        // Attempt to release if we believe we hold the lock. This is a best-effort
-        // heuristic — only the owning task can successfully release a recursive
-        // mutex. If a different task drops this, xSemaphoreGiveRecursive will fail
-        // and we proceed to delete the semaphore anyway.
-        if self.owned.load(Ordering::Acquire) {
+        // Attempt to fully release the recursive mutex by calling give once
+        // per outstanding lock count. Only the owning task can successfully
+        // release. If a different task drops this, the gives will fail and
+        // we proceed to delete the semaphore anyway.
+        let count = self.lock_count.load(Ordering::Acquire);
+        for _ in 0..count {
             self.unlock();
         }
         if !self.handle.is_null() {
@@ -604,11 +610,13 @@ const _: () = {
     assert_sync::<RecursiveMutex>();
 };
 
-// Wrapper types are pointer-sized (handle only, no extra fields except Mutex/RecursiveMutex with AtomicBool)
+// Wrapper types are pointer-sized (handle only, no extra fields except Mutex with AtomicBool
+// and RecursiveMutex with AtomicUsize)
 const _: () = assert!(core::mem::size_of::<BinarySemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
 const _: () = assert!(core::mem::size_of::<CountingSemaphore>() == core::mem::size_of::<FreeRtosSemaphoreHandle>());
-// Mutex and RecursiveMutex have an additional AtomicBool for ownership tracking
+// Mutex has an additional AtomicBool for ownership tracking
 const _: () = assert!(core::mem::size_of::<Mutex>() >= core::mem::size_of::<FreeRtosMutexHandle>());
+// RecursiveMutex has an additional AtomicUsize for lock count tracking
 const _: () = assert!(core::mem::size_of::<RecursiveMutex>() >= core::mem::size_of::<FreeRtosMutexHandle>());
 
 // All wrappers are repr(C) compatible (handle is first field)

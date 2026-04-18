@@ -368,8 +368,16 @@ impl<T> Queue<T> {
     ///
     /// Returns [`FreeRtosError::OutOfMemory`] if the `FreeRTOS` heap cannot
     /// accommodate the queue.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is a zero-sized type. Use semaphores for signaling instead.
     #[allow(clippy::cast_possible_truncation)]
     pub fn new(length: FreeRtosUBaseType) -> Result<Self, FreeRtosError> {
+        assert!(
+            core::mem::size_of::<T>() > 0,
+            "Queue<T> does not support zero-sized types — use semaphores instead"
+        );
         let handle = unsafe {
             freertos_rs_queue_create(length, core::mem::size_of::<T>() as FreeRtosUBaseType)
         };
@@ -433,12 +441,23 @@ impl<T> Queue<T> {
     /// `queue_storage` must be properly aligned and large enough for `length * size_of::<T>()` bytes.
     /// `static_queue` must point to a valid `StaticQueue_t`-sized buffer. Both must remain
     /// valid for the lifetime of the queue.
+    /// # Errors
+    ///
+    /// Returns [`FreeRtosError::OutOfMemory`] if the static queue creation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` is a zero-sized type. Use semaphores for signaling instead.
     #[allow(clippy::cast_possible_truncation)]
     pub unsafe fn new_static(
         length: FreeRtosUBaseType,
         queue_storage: *mut u8,
         static_queue: FreeRtosVoidPtr,
     ) -> Result<Self, FreeRtosError> {
+        assert!(
+            core::mem::size_of::<T>() > 0,
+            "Queue<T> does not support zero-sized types — use semaphores instead"
+        );
         let handle = unsafe {
             freertos_rs_queue_create_static(
                 length,

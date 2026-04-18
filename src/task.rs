@@ -633,7 +633,8 @@ unsafe extern "C" {
 /// } // Interrupts re-enabled here when _cs is dropped
 /// ```
 pub struct CriticalSection {
-    _private: (), // Prevent construction outside of `enter()`
+    _private: (),
+    _not_sync: core::marker::PhantomData<core::cell::UnsafeCell<()>>,
 }
 
 impl CriticalSection {
@@ -642,7 +643,7 @@ impl CriticalSection {
     /// Interrupts will be re-enabled when the returned guard is dropped.
     pub fn enter() -> Self {
         unsafe { freertos_rs_task_enter_critical() };
-        Self { _private: () }
+        Self { _private: (), _not_sync: core::marker::PhantomData }
     }
 }
 
@@ -653,7 +654,8 @@ impl Drop for CriticalSection {
 }
 
 // Safety: CriticalSection disables interrupts; it's Send because it can be
-// created on any thread but should not be shared across threads.
+// created on any thread. PhantomData<UnsafeCell<()>> makes it !Sync, preventing
+// the guard from being shared across threads.
 unsafe impl Send for CriticalSection {}
 
 /// RAII guard for a critical section entered from an ISR context.
@@ -819,7 +821,7 @@ impl Task {
     /// Creates a `Task` from an existing handle without taking ownership.
     ///
     /// The task will NOT be deleted when this `Task` is dropped.
-    pub fn from_handle(handle: FreeRtosTaskHandle) -> Self {
+    pub const fn from_handle(handle: FreeRtosTaskHandle) -> Self {
         Self { handle, owns_task: false }
     }
 
@@ -830,13 +832,13 @@ impl Task {
     /// # Safety
     /// `handle` must not be null. Passing null will cause `vTaskDelete(NULL)`
     /// on drop, which deletes the **calling task** — almost certainly unintended.
-    /// `handle` must be a valid task handle obtained from a FreeRTOS API.
-    pub unsafe fn from_handle_owned(handle: FreeRtosTaskHandle) -> Self {
+    /// `handle` must be a valid task handle obtained from a `FreeRTOS` API.
+    pub const unsafe fn from_handle_owned(handle: FreeRtosTaskHandle) -> Self {
         Self { handle, owns_task: true }
     }
 
     /// Returns the raw task handle.
-    pub fn handle(&self) -> FreeRtosTaskHandle {
+    pub const fn handle(&self) -> FreeRtosTaskHandle {
         self.handle
     }
 
@@ -907,7 +909,7 @@ impl Task {
 
     /// Disables further automatic deletion on drop.
     /// Use this if you want the task to outlive this handle.
-    pub fn detach(&mut self) {
+    pub const fn detach(&mut self) {
         self.owns_task = false;
     }
 

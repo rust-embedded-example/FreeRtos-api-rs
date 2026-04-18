@@ -202,6 +202,6 @@ use core::panic::PanicInfo;
 
 #[cfg(feature = "panic-handler")]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+const fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }

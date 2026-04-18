@@ -1620,6 +1620,7 @@ void freertos_rs_semaphore_delete(SemaphoreHandle_t xSemaphore)
 }
 
 #if (configUSE_COUNTING_SEMAPHORES == 1)
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
  * @brief Wrapper for xSemaphoreCreateCounting()
  * Creates a counting semaphore
@@ -1631,6 +1632,7 @@ SemaphoreHandle_t freertos_rs_semaphore_create_counting(UBaseType_t uxMaxCount, 
 {
     return xSemaphoreCreateCounting(uxMaxCount, uxInitialCount);
 }
+#endif
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -1649,6 +1651,7 @@ SemaphoreHandle_t freertos_rs_semaphore_create_counting_static(UBaseType_t uxMax
 #endif
 
 #if (configUSE_MUTEXES == 1)
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
  * @brief Wrapper for xSemaphoreCreateMutex()
  * Creates a mutex
@@ -1658,6 +1661,7 @@ SemaphoreHandle_t freertos_rs_semaphore_create_mutex(void)
 {
     return xSemaphoreCreateMutex();
 }
+#endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -1673,6 +1677,7 @@ SemaphoreHandle_t freertos_rs_semaphore_create_mutex_static(void* pxMutexBuffer)
 #endif
 
 #if (configUSE_RECURSIVE_MUTEXES == 1)
+#if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
  * @brief Wrapper for xSemaphoreCreateRecursiveMutex()
  * Creates a recursive mutex
@@ -1682,6 +1687,7 @@ SemaphoreHandle_t freertos_rs_semaphore_create_recursive_mutex(void)
 {
     return xSemaphoreCreateRecursiveMutex();
 }
+#endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
 /**
@@ -2496,7 +2502,7 @@ BaseType_t freertos_rs_stream_buffer_get_static_buffers(StreamBufferHandle_t xSt
  * MESSAGE BUFFER FUNCTIONS
  *===========================================================================*/
 
-#if (configUSE_MESSAGE_BUFFERS == 1)
+#if (configUSE_STREAM_BUFFERS == 1)
 
 #if (configSUPPORT_DYNAMIC_ALLOCATION == 1)
 /**
@@ -2662,7 +2668,7 @@ BaseType_t freertos_rs_message_buffer_get_static_buffers(MessageBufferHandle_t x
 }
 #endif
 
-#endif /* configUSE_MESSAGE_BUFFERS */
+#endif /* configUSE_STREAM_BUFFERS for message buffers */
 
 /*===========================================================================
  * ATOMIC OPERATION FUNCTIONS
@@ -3645,7 +3651,7 @@ void freertos_rs_event_group_clear_bits_callback(void *pvEventGroup, uint32_t ul
  * STREAM BUFFER - WITH CALLBACK CREATION
  *===========================================================================*/
 
-#if (configUSE_STREAM_BUFFERS == 1)
+#if (configUSE_STREAM_BUFFERS == 1) && (configUSE_SB_COMPLETED_CALLBACK == 1)
 /**
  * @brief Wrapper for xStreamBufferCreateWithCallback()
  * Creates a stream buffer with send/receive callbacks
@@ -3688,6 +3694,7 @@ StreamBufferHandle_t freertos_rs_stream_buffer_create_static_with_callback(
         pucStreamBufferStorageArea, pxStaticStreamBuffer,
         pxSendCompletedCallback, pxReceiveCompletedCallback);
 }
+#endif /* configUSE_STREAM_BUFFERS && configUSE_SB_COMPLETED_CALLBACK */
 
 /*===========================================================================
  * STREAM BATCHING BUFFER
@@ -3708,6 +3715,7 @@ StreamBufferHandle_t freertos_rs_stream_batching_buffer_create(
     return xStreamBatchingBufferCreate(xBufferSizeBytes, xTriggerLevelBytes);
 }
 
+#if (configUSE_SB_COMPLETED_CALLBACK == 1)
 /**
  * @brief Wrapper for xStreamBatchingBufferCreateWithCallback()
  * Creates a batching stream buffer with callbacks
@@ -3726,6 +3734,7 @@ StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_with_callback(
     return xStreamBatchingBufferCreateWithCallback(xBufferSizeBytes, xTriggerLevelBytes,
         pxSendCompletedCallback, pxReceiveCompletedCallback);
 }
+#endif /* configUSE_SB_COMPLETED_CALLBACK */
 
 /**
  * @brief Wrapper for xStreamBatchingBufferCreateStatic()
@@ -3746,6 +3755,7 @@ StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_static(
         pucStreamBufferStorageArea, pxStaticStreamBuffer);
 }
 
+#if (configUSE_SB_COMPLETED_CALLBACK == 1)
 /**
  * @brief Wrapper for xStreamBatchingBufferCreateStaticWithCallback()
  * Creates a static batching stream buffer with callbacks
@@ -3769,6 +3779,7 @@ StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_static_with_callb
         pucStreamBufferStorageArea, pxStaticStreamBuffer,
         pxSendCompletedCallback, pxReceiveCompletedCallback);
 }
+#endif /* configUSE_SB_COMPLETED_CALLBACK */
 #endif /* configUSE_STREAM_BUFFERS */
 #endif /* configUSE_STREAM_BUFFERS */
 
@@ -3776,7 +3787,7 @@ StreamBufferHandle_t freertos_rs_stream_batching_buffer_create_static_with_callb
  * MESSAGE BUFFER - WITH CALLBACK + ISR RESET
  *===========================================================================*/
 
-#if (configUSE_STREAM_BUFFERS == 1)
+#if (configUSE_STREAM_BUFFERS == 1) && (configUSE_SB_COMPLETED_CALLBACK == 1)
 /**
  * @brief Wrapper for xMessageBufferCreateWithCallback()
  * Creates a message buffer with send/receive callbacks
@@ -3815,6 +3826,7 @@ MessageBufferHandle_t freertos_rs_message_buffer_create_static_with_callback(
         pucStreamBufferStorageArea, pxStaticStreamBuffer,
         pxSendCompletedCallback, pxReceiveCompletedCallback);
 }
+#endif /* configUSE_STREAM_BUFFERS && configUSE_SB_COMPLETED_CALLBACK */
 
 /**
  * @brief Wrapper for xMessageBufferResetFromISR()
@@ -3896,7 +3908,7 @@ void freertos_rs_task_get_passive_idle_task_memory(
  * TASK - IDLE RUN TIME STATS
  *===========================================================================*/
 
-#if (configGENERATE_RUN_TIME_STATS == 1)
+#if (configGENERATE_RUN_TIME_STATS == 1) && (INCLUDE_xTaskGetIdleTaskHandle == 1)
 /**
  * @brief Wrapper for ulTaskGetIdleRunTimeCounter()
  * Returns the run time counter of the idle task
@@ -3916,7 +3928,7 @@ configRUN_TIME_COUNTER_TYPE freertos_rs_task_get_idle_run_time_percent(void)
 {
     return ulTaskGetIdleRunTimePercent();
 }
-#endif /* configGENERATE_RUN_TIME_STATS */
+#endif /* configGENERATE_RUN_TIME_STATS && INCLUDE_xTaskGetIdleTaskHandle */
 
 /*===========================================================================
  * TASK - MPU RESTRICTED AFFINITY SET

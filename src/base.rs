@@ -301,7 +301,7 @@ pub struct FreeRtosMemoryRegion {
 /// This Rust struct always includes `task_buffer`. Since MPU-restricted task
 /// creation functions (`xTaskCreateRestricted*`) require `portUSING_MPU_WRAPPERS == 1`,
 /// this struct should only be used in MPU-enabled configurations where the
-/// field is present. **Do not pass this struct to FFI if your FreeRTOS config
+/// field is present. **Do not pass this struct to FFI if your `FreeRTOS` config
 /// does not enable both MPU wrappers and static allocation.**
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
