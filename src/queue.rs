@@ -535,10 +535,12 @@ impl<T> Queue<T> {
     }
 }
 
-// Data transfer methods require T: Send because FreeRTOS copies items via
-// memcpy across task boundaries. Non-Send types (e.g., Rc, Cell) would have
-// their invariants violated by bitwise duplication between threads.
-impl<T: Send> Queue<T> {
+// Data transfer methods require T: Send + Copy because FreeRTOS copies items
+// via memcpy across task boundaries. Send ensures the type is safe to transfer
+// between threads. Copy ensures bitwise duplication is safe (no Drop impl that
+// could cause double-free). Without Copy, types like Box<u32> would be bitwise
+// duplicated: both sender and receiver would Drop the same allocation.
+impl<T: Send + Copy> Queue<T> {
     /// Sends an item to the back of the queue.
     ///
     /// Blocks for up to `ticks_to_wait` ticks if the queue is full.
@@ -753,10 +755,10 @@ impl<T> Drop for Queue<T> {
 }
 
 // Safety: Queue handles are safe to share between threads — FreeRTOS manages
-// the internal synchronization. Sync requires T: Sync because multiple
-// readers can observe copies of the same value via peek/receive.
-unsafe impl<T: Send> Send for Queue<T> {}
-unsafe impl<T: Send + Sync> Sync for Queue<T> {}
+// the internal synchronization. T must be Send (safe to transfer) and Copy
+// (safe to bitwise-duplicate via memcpy).
+unsafe impl<T: Send + Copy> Send for Queue<T> {}
+unsafe impl<T: Send + Copy + Sync> Sync for Queue<T> {}
 
 //===========================================================================
 // SAFE WRAPPER - QUEUE SET
@@ -995,14 +997,17 @@ unsafe impl Sync for QueueSet {}
 // COMPILE-TIME ASSERTIONS (replaces #[test] for no_std bare-metal)
 //===========================================================================
 
-// Thread safety: Queue<T: Send> is Send, Queue<T: Send+Sync> is Sync
+// Thread safety: Queue<T: Send+Copy> is Send, Queue<T: Send+Copy+Sync> is Sync
 const _: () = {
     const fn assert_send<T: Send>() {}
     const fn assert_sync<T: Sync>() {}
+    const fn assert_copy<T: Copy>() {}
     assert_send::<Queue<u32>>();
     assert_sync::<Queue<u32>>();
+    assert_copy::<u32>();
     assert_send::<Queue<u8>>();
     assert_sync::<Queue<u8>>();
+    assert_copy::<u8>();
     assert_send::<QueueSet>();
     assert_sync::<QueueSet>();
 };

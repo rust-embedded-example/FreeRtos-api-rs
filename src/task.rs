@@ -1090,6 +1090,38 @@ impl Task {
         }
     }
 
+    /// Gets the application task tag (user data pointer).
+    pub fn tag(&self) -> FreeRtosVoidPtr {
+        unsafe { freertos_rs_task_get_application_task_tag(self.handle) }
+    }
+
+    /// Sets the application task tag (user data pointer).
+    ///
+    /// # Safety
+    /// `tag` must be a valid pointer or null for the intended use.
+    pub unsafe fn set_tag(&self, tag: FreeRtosVoidPtr) {
+        unsafe { freertos_rs_task_set_application_task_tag(self.handle, tag) }
+    }
+
+    /// Gets the application task tag from ISR context.
+    pub fn tag_from_isr(&self) -> FreeRtosVoidPtr {
+        unsafe { freertos_rs_task_get_application_task_tag_from_isr(self.handle) }
+    }
+
+    /// Gets the run time counter for this task.
+    ///
+    /// Only available when `configGENERATE_RUN_TIME_STATS` is enabled.
+    pub fn run_time_counter(&self) -> u32 {
+        unsafe { freertos_rs_task_get_run_time_counter(self.handle) }
+    }
+
+    /// Gets the run time percentage for this task.
+    ///
+    /// Only available when `configGENERATE_RUN_TIME_STATS` is enabled.
+    pub fn run_time_percent(&self) -> u32 {
+        unsafe { freertos_rs_task_get_run_time_percent(self.handle) }
+    }
+
     /// Gets the task number (trace facility).
     pub fn task_number(&self) -> FreeRtosUBaseType {
         unsafe { freertos_rs_task_get_task_number(self.handle) }
@@ -1297,22 +1329,6 @@ pub unsafe fn get_system_state(
     }
 }
 
-/// Gets the run time counter for a specific task.
-///
-/// # Safety
-/// `task` must be a valid, non-null task handle.
-pub unsafe fn get_run_time_counter(task: FreeRtosTaskHandle) -> u32 {
-    unsafe { freertos_rs_task_get_run_time_counter(task) }
-}
-
-/// Gets the run time percentage for a specific task.
-///
-/// # Safety
-/// `task` must be a valid, non-null task handle.
-pub unsafe fn get_run_time_percent(task: FreeRtosTaskHandle) -> u32 {
-    unsafe { freertos_rs_task_get_run_time_percent(task) }
-}
-
 /// Gets the idle task run time counter.
 pub fn get_idle_run_time_counter() -> crate::base::FreeRtosRunTimeCounterType {
     unsafe { freertos_rs_task_get_idle_run_time_counter() }
@@ -1410,40 +1426,7 @@ pub fn confirm_sleep_mode_status() -> FreeRtosBaseType {
     unsafe { freertos_rs_task_confirm_sleep_mode_status() }
 }
 
-/// Sets an application tag (user data pointer) for a task.
-///
-/// # Safety
-/// `task` must be a valid task handle. `tag` must be a valid pointer or null.
-pub unsafe fn set_application_task_tag(task: FreeRtosTaskHandle, tag: FreeRtosVoidPtr) {
-    unsafe { freertos_rs_task_set_application_task_tag(task, tag) };
-}
-
-/// Gets the application tag for a task.
-///
-/// # Safety
-/// `task` must be a valid task handle.
-pub unsafe fn get_application_task_tag(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr {
-    unsafe { freertos_rs_task_get_application_task_tag(task) }
-}
-
-/// Gets the application tag for a task from an ISR.
-///
-/// # Safety
-/// `task` must be a valid task handle.
-pub unsafe fn get_application_task_tag_from_isr(task: FreeRtosTaskHandle) -> FreeRtosVoidPtr {
-    unsafe { freertos_rs_task_get_application_task_tag_from_isr(task) }
-}
-
-/// Calls a task's application hook function.
-///
-/// # Safety
-/// `task` must be a valid task handle with a hook set.
-/// `parameter` must be valid for the hook function.
-pub unsafe fn call_application_task_hook(task: FreeRtosTaskHandle, parameter: FreeRtosVoidPtr) -> FreeRtosBaseType {
-    unsafe { freertos_rs_task_call_application_task_hook(task, parameter) }
-}
-
-/// Steps the tick count forward (for tickless idle).
+/// Confirms if the sleep mode status allows entering sleep.
 ///
 /// # Safety
 /// Must only be called from the tickless idle hook.
@@ -1465,14 +1448,6 @@ pub unsafe fn increment_tick() -> FreeRtosBaseType {
 /// For kernel internal use only.
 pub unsafe fn reset_state() {
     unsafe { freertos_rs_task_reset_state() };
-}
-
-/// Formats task runtime statistics into a string buffer.
-///
-/// # Safety
-/// `buffer` must point to a valid buffer.
-pub unsafe fn get_run_time_stats(buffer: *mut u8) {
-    unsafe { freertos_rs_task_get_run_time_stats(buffer) };
 }
 
 /// Formats a list of all tasks into a string buffer.
